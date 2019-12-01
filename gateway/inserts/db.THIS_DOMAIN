@@ -1,0 +1,15 @@
+;
+; BIND data file for domain THIS_DOMAIN
+;
+$TTL 604800
+@ IN SOA THIS_DOMAIN. root.THIS_DOMAIN. (
+                            2 ; Serial
+                       604800 ; Refresh
+                        86400 ; Retry
+                      2419200 ; Expire
+                     604800 ) ; Negative Cache TTL
+;
+@           IN      NS      THIS_HOSTNAME.THIS_DOMAIN.
+
+; A NAME Records
+THIS_HOSTNAME    IN      A       192.168.THIS_BYTE.THIS_OWN

@@ -1,0 +1,19 @@
+//
+// Do any local configuration here
+//
+
+// Consider adding the 1918 zones here, if they are not used in your
+// organization
+//include "/etc/bind/zones.rfc1918";
+
+zone THIS_DOMAIN. {
+     type master;
+     allow-update { key "rndc-key" ;};
+     file "/etc/bind/db.THIS_DOMAIN";
+};
+
+zone THIS_BYTE.168.192.in-addr.arpa. {
+     type master;
+     allow-update { key "rndc-key" ;};
+     file "/etc/bind/db.192";
+};

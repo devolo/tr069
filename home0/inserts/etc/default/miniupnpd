@@ -1,0 +1,29 @@
+# Set to 1 to start the daemon. Desactivated by default, because
+# you don't want the outside to control your UPnP router, and
+# as a consequence MiniUPnPd_LISTENING_IP should be set to a
+# reasonable value before enabling the daemon.
+START_DAEMON=1
+
+# Define here the external interface connected to the WAN (eg: the public
+# IP address NIC)
+MiniUPnPd_EXTERNAL_INTERFACE=INTERNET_INTERFACE
+
+# Interfaces / IPs that the daemon should listen on, separated by space.
+# Notes:
+#  1. You do *not* want this to be 0.0.0.0, as you don't want your MiniUPnPd to
+#     be controlled by anyone on the Internet.
+#  2. It is mandatory to use the network interface name in order to enable IPv6
+#     HTTP is available on all interfaces.
+#  3. Specifying IP when built with IPv6 support is disabled by original
+#     author, so this option may not be available outside Debian.
+MiniUPnPd_LISTENING_IP=LOCAL_INTERFACE
+
+# This defines other options which you might want to use when
+# starting MiniUPnPd. Note that the -S option is important:
+# -S sets "secure" mode : clients can only add mappings to their own ip
+# (see man page)
+MiniUPnPd_OTHER_OPTIONS="-N -S -f /etc/miniupnpd/miniupnpd.conf"
+
+# If this option is defined, then the init script will initialize
+# the ipv6 tables.
+MiniUPnPd_ip6tables_enable=no

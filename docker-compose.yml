@@ -1,0 +1,491 @@
+version: '3.3'
+
+
+services:
+################################################################################
+# helper images
+################################################################################
+  base:
+    image: tr069_base:${VERSION:-latest}
+    environment:
+    - DHCLIENT_TIMEOUT=300
+    build:
+        context: ./base
+        args:
+            - VERSION=${VERSION:-latest}
+
+   ###### connected in the virtual world to a gateway ########################
+  dhcp_client:
+    image: tr069_dhcp_client:${VERSION:-latest}
+    build:
+        context: ./dhcp_client
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    depends_on:
+      - base
+
+   ###### connecting networks ################################################
+  gateway:
+    environment:
+    - UPSTREAM_NETWORK_NAME=internet
+    image: tr069_gateway:${VERSION:-latest}
+    build:
+        context: ./gateway
+        args:
+            - VERSION=${VERSION:-latest}
+    hostname: private
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    depends_on:
+      - base
+      - dhcp_client
+    networks:
+      private1:
+      private2:
+
+################################################################################
+# real implemented and used services
+################################################################################
+  genieacs:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    tty: true
+    container_name: tr069_genieacs
+    hostname: genieacs
+    image: tr069_genieacs:${VERSION:-latest}
+    build:
+        context: ./genieacs
+        args:
+            - VERSION=${VERSION:-latest}
+    depends_on:
+      - telco0
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    ports:
+      # 7547 is the cwmp, 7557 is the NBI, 7567 is the FS, 7070 is webui
+      - 7547:7547
+      - 7557:7557
+      - 7567:7567
+      - 7070:7070
+    expose:
+      - '7547'
+      - '7557'
+      - '7567'
+      - '7070'
+    volumes:
+      - genieacs:/data/db
+    networks:
+      telco0:
+
+  acsdb:
+    container_name: tr069_acsdb
+    hostname: acsdb
+    image: tr069_acsdb:${VERSION:-latest}
+    build:
+        context: ./mysql
+        args:
+            - VERSION=${VERSION:-latest}
+    tty: true
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    tty: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    ports:
+      # <Port exposed> : < MySQL Port running inside container>
+      - ${MYSQL_PORT:-3306}:3306
+    expose:
+      # Opens port 3306 on the container
+      - '3306'
+    volumes:
+      # Where our data will be persisted
+      - acsdb:/var/lib/mysql
+      # all files in db will be executed (*.sh *.sql *.sql.gz) or ignored.
+      - ./acsdb/inserts:/docker-entrypoint-initdb.d
+    networks:
+      telco0:
+    depends_on:
+      - telco0
+
+
+  acs:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    tty: true
+    container_name: tr069_acs
+    hostname: acs
+    image: tr069_acs:${VERSION:-latest}
+    build:
+        context: ./openacs
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    depends_on:
+      - acsdb
+      - telco0
+    ports:
+      # <Port exposed> : <jboss>
+      - ${MYHTTP_PORT:-8080}:8080
+    expose:
+      # Opens port 8080 on the container
+      - '8080'
+    networks:
+      telco0:
+
+  stun:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    tty: true
+    container_name: tr069_stun
+    hostname: stun
+    image: tr069_stun:${VERSION:-latest}
+    build:
+        context: ./stun
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    depends_on:
+      - telco0
+    security_opt:
+      - apparmor:docker-default
+    expose:
+      # Opens stun ports on the container
+      - 3478/udp
+      - 3479/udp
+    networks:
+      telco0:
+
+  xmpp:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    tty: true
+    container_name: tr069_xmpp
+    hostname: xmpp
+    image: tr069_xmpp:${VERSION:-latest}
+    build:
+        context: ./xmpp
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    depends_on:
+      - upstream
+    expose:
+      # Opens xmpp ports on the container
+      - 5222
+      - 5223
+      - 5269
+      - 5298/udp
+      - 5298
+      - 8010
+    networks:
+      internet:
+
+  web:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    tty: true
+    container_name: tr069_web
+    hostname: web
+    image: tr069_web:${VERSION:-latest}
+    build:
+        context: ./apache
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    volumes:
+      - web:/var/www/html/protected
+    depends_on:
+      - telco0
+    security_opt:
+      - apparmor:docker-default
+    expose:
+      # Opens http port on the container
+      - 80
+    networks:
+      telco0:
+
+  nginx:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    tty: true
+    container_name: tr069_nginx
+    hostname: nginx
+    image: tr069_nginx:${VERSION:-latest}
+    build:
+        context: ./nginx
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    depends_on:
+      - genieacs
+      - acs
+      - web
+      - telco0
+    volumes:
+      - ~/.ca:/root/ca
+    security_opt:
+      - apparmor:docker-default
+    expose:
+      # Opens http and https port on the container
+      - 80
+      - 443
+    networks:
+      telco0:
+
+################################################################################
+# debugging and testing
+################################################################################
+  rsyslog:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    tty: true
+    container_name: tr069_rsyslog
+    hostname: rsyslog
+    image: tr069_rsyslog:${VERSION:-latest}
+    build:
+        context: ./rsyslog
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    depends_on:
+      - upstream
+    expose:
+      - 514
+      - 514/udp
+    networks:
+      internet:
+
+  probe1:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    - DISPLAY=${DISPLAY}
+    tty: true
+    container_name: tr069_probe1
+    hostname: probe1
+    image: tr069_probe1:${VERSION:-latest}
+    build:
+        context: ./probe
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    depends_on:
+      - home0
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    networks:
+      home0:
+
+#  probe2:
+#    environment:
+#    - KEEP_SERVICE_RUNNING=yes
+#    - DISPLAY=${DISPLAY}
+#    tty: true
+#    container_name: tr069_probe2
+#    hostname: probe2
+#    image: tr069_probe2:${VERSION:-latest}
+#    build: ./probe
+#    privileged: true
+#    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+#    security_opt:
+#      - apparmor:docker-default
+#    depends_on:
+#      - telco0
+#    volumes:
+#      - /tmp/.X11-unix:/tmp/.X11-unix
+#    networks:
+#      telco0:
+#
+#  probe3:
+#    environment:
+#    - KEEP_SERVICE_RUNNING=yes
+#    - DISPLAY=${DISPLAY}
+#    tty: true
+#    container_name: tr069_probe3
+#    hostname: probe3
+#    image: tr069_probe3:${VERSION:-latest}
+#    build: ./probe
+#    privileged: true
+#    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+#    security_opt:
+#      - apparmor:docker-default
+#    depends_on:
+#      - upstream
+#    volumes:
+#      - /tmp/.X11-unix:/tmp/.X11-unix
+#    networks:
+#      internet:
+#
+#  probe4:
+#    environment:
+#    - KEEP_SERVICE_RUNNING=yes
+#    - DISPLAY=${DISPLAY}
+#    tty: true
+#    container_name: tr069_probe4
+#    hostname: probe4
+#    image: tr069_probe4:${VERSION:-latest}
+#    build: ./probe
+#    privileged: true
+#    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+#    security_opt:
+#      - apparmor:docker-default
+#    depends_on:
+#      - upstream
+#    volumes:
+#      - /tmp/.X11-unix:/tmp/.X11-unix
+#    networks:
+#      upstream:
+
+################################################################################
+# gateways
+################################################################################
+
+  home0:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    - UPSTREAM_NETWORK_NAME=internet
+    - UPSTREAM_GATEWAY_NAME=upstream
+    # allowed range is 1-250 to generate addresses in 192.168.IP_ADDRES_BYTE_TO_SERVE.
+    - IP_ADDRES_BYTE_TO_SERVE=${HOME0_IP_ADDRES_BYTE:-1}
+    - OWN_IP_ADDRES_BYTE=${HOME0_OWN_IP_ADDRES_BYTE:-100}
+    - DEFAULT_LEASE_TIME=${HOME0_DEFAULT_LEASE_TIME:-86400}
+    - DOMAIN_TO_SERVE=home0.intern
+    - USE_OPTION_125_WORKAROUND=${PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND:-"no"}
+    tty: true
+    container_name: tr069_home0
+    hostname: home0
+    image: tr069_home0:${VERSION:-latest}
+    build:
+        context: ./home0
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    depends_on:
+      - upstream
+    expose:
+      - 53
+      - 53/udp
+      - 67/udp
+      - 68/udp
+    networks:
+      internet:
+      home0:
+
+# To connect the telco0 network to the 'internet'
+  telco0:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    - UPSTREAM_NETWORK_NAME=internet
+    - UPSTREAM_GATEWAY_NAME=upstream
+    # allowed range is 1-250 to generate addresses in 192.168.IP_ADDRES_BYTE_TO_SERVE.
+    - IP_ADDRES_BYTE_TO_SERVE=${TELCO0_IP_ADDRES_BYTE:-2}
+    - OWN_IP_ADDRES_BYTE=${TELCO0_OWN_IP_ADDRES_BYTE:-1}
+    - DEFAULT_LEASE_TIME=${TELCO0_DEFAULT_LEASE_TIME:-3600}
+    - DOMAIN_TO_SERVE=telco0.intern
+    tty: true
+    container_name: tr069_telco0
+    hostname: telco0
+    image: tr069_telco0:${VERSION:-latest}
+    build:
+        context: ./telco0
+        args:
+        - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    depends_on:
+      - upstream
+    expose:
+      - 53
+      - 53/udp
+      - 67/udp
+      - 68/udp
+    networks:
+      internet:
+      telco0:
+
+# To connect the internetworking network to the upstream 'internet'
+  upstream:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    - UPSTREAM_NETWORK_NAME=localupstream
+    # allowed range is 1-250 to generate addresses in 192.168.IP_ADDRES_BYTE_TO_SERVE.
+    - IP_ADDRES_BYTE_TO_SERVE=${UPSTREAM_IP_ADDRES_BYTE:-3}
+    - OWN_IP_ADDRES_BYTE=${UPSTREAM_OWN_IP_ADDRES_BYTE:-1}
+    - DEFAULT_LEASE_TIME=${UPSTREAM_DEFAULT_LEASE_TIME:-600}
+    - DHCLIENT_TIMEOUT=60
+    - DOMAIN_TO_SERVE=public
+    tty: true
+    container_name: tr069_upstream
+    hostname: upstream
+    image: tr069_upstream:${VERSION:-latest}
+    build:
+        context: ./upstream
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    depends_on:
+      - gateway
+    expose:
+      - 53
+      - 53/udp
+      - 67/udp
+      - 68/udp
+    networks:
+      internet:
+      upstream:
+
+#
+################################################################################
+#
+
+volumes:
+  acsdb:
+  genieacs:
+  web:
+
+#
+################################################################################
+#
+
+networks:
+  telco0:
+    driver: macvlan
+  home0:
+    driver: macvlan
+    driver_opts:
+      parent: ${MY_DUT_INTERFACE}
+  internet:
+    driver: macvlan
+  private1:
+    driver: macvlan
+  private2:
+    driver: macvlan
+  upstream:
+    driver: macvlan
+    driver_opts:
+      parent: ${MY_UPSTREAM_INTERFACE}

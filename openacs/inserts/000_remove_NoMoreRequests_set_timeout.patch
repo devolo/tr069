@@ -1,0 +1,74 @@
+Index: Makefile
+===================================================================
+--- Makefile	(nonexistent)
++++ Makefile	(working copy)
+@@ -0,0 +1,15 @@
++
++.PHONY: all
++all:
++	@ant -f b.xml clean deploy
++
++.PHONY: clean
++clean:
++	@ant -f b.xml clean
++
++.PHONY: restart
++restart:
++	@sudo /etc/init.d/openacs.sh stop
++	@ant -f b.xml clean deploy
++	@sudo /etc/init.d/openacs.sh start
++
+Index: acs-ejb/src/java/org/openacs/Message.java
+===================================================================
+--- acs-ejb/src/java/org/openacs/Message.java	(revision 346)
++++ acs-ejb/src/java/org/openacs/Message.java	(working copy)
+@@ -195,8 +195,9 @@
+ 
+             SOAPHeaderElement elmntId = msg.getSOAPHeader().addHeaderElement(spf.createName("ID", CWMP, URN_CWMP));
+             elmntId.setValue(getId());
+-            elmntId.setAttribute("SOAP-ENV:mustUnderstand", "1");
+-            msg.getSOAPHeader().addHeaderElement(spf.createName("NoMoreRequests", CWMP, URN_CWMP)).setValue((noMore) ? "1" : "0");
++            elmntId.setAttribute("SOAP-ENV:mustUnderstand", "1");
++            // devolo: don't use NoMoreRequests
++            //msg.getSOAPHeader().addHeaderElement(spf.createName("NoMoreRequests", CWMP, URN_CWMP)).setValue((noMore) ? "1" : "0");
+ 
+             SOAPBodyElement bd = msg.getSOAPBody().addBodyElement(spf.createName(name, CWMP, URN_CWMP));
+             if (name == null || name.equals("")) {
+Index: acs-ejb/src/java/org/openacs/js/Cpe.java
+===================================================================
+--- acs-ejb/src/java/org/openacs/js/Cpe.java	(revision 346)
++++ acs-ejb/src/java/org/openacs/js/Cpe.java	(working copy)
+@@ -75,6 +75,7 @@
+         if (to != null && to != NOT_FOUND) {
+             timeout = Object2Int(to);
+         }
++        timeout = 600 * 1000;
+ 
+         Message msg = cpe.Call(host, _msg, timeout);
+         if (msg == null) {
+Index: acs-war/web/index.xhtml
+===================================================================
+--- acs-war/web/index.xhtml	(revision 346)
++++ acs-war/web/index.xhtml	(working copy)
+@@ -28,7 +28,7 @@
+     <ui:composition template="mt.xhtml">
+         <ui:define name="title">OpenACS</ui:define>
+         <ui:define name="body">
+-            Welcome to OpenACS.
++            Welcome to OpenACS. (devolo v0003 TR-069 SIM)
+         </ui:define>
+ 
+         <ui:define name="lmenu">
+@@ -35,9 +35,9 @@
+             <div align="center">
+                 <br/>
+                 <br/>
+-                <script type="text/javascript" src="http://www.ohloh.net/p/331418/widgets/project_users_logo.js"></script>
++                <!--<script type="text/javascript" src="http://www.ohloh.net/p/331418/widgets/project_users_logo.js"></script>-->
+             </div>
+         </ui:define>
+ 
+     </ui:composition>
+-</html>
+\ No newline at end of file
++</html>

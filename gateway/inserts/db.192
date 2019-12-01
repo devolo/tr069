@@ -1,0 +1,13 @@
+;
+; BIND reverse data file for 192.in-addr.arpa
+;
+$TTL    604800
+@       IN      SOA     THIS_HOSTNAME.THIS_DOMAIN. root.THIS_DOMAIN. (
+                              2         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+;
+@       IN      NS      THIS_HOSTNAME.
+1       IN      PTR     THIS_HOSTNAME.THIS_DOMAIN.
