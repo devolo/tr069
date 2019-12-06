@@ -303,8 +303,8 @@ test_networking() {
 	ping -c 1 ${HOST}.public
     done
     display_message "Testing access to webui of telco0's acs ..."
-    wget telco0.public:9000/openacs
-    rm openacs.1
+    wget -o out.html telco0.public:9000/openacs
+    rm out.html
     display_message "Testing access to webui of telco0's apache ..."
     wget telco0.public
     rm index.html
