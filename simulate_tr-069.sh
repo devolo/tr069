@@ -440,12 +440,14 @@ docker_simulation_cleanup () {
 }
 
 tag_images_latest() {
-  IMAGES=$(grep 'image: ' docker-compose.yml | grep -v "#" | cut -d':' -f 2)
+    if [ "${1}" != "" ]; then
+	IMAGES=$(grep 'image: ' docker-compose.yml | grep -v "#" | cut -d':' -f 2)
 	for IMAGE in $IMAGES
 	do
 	    docker tag "${IMAGE}":"${1}" "${IMAGE}":latest
 	done
 	display_message "TR-069 simulation v${1} tagged as latest!"
+    fi
 }
 
 ################################################################################
