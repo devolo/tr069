@@ -297,20 +297,20 @@ docker_pull() {
     echo ""
 }
 
+test_download_from_url() {
+    display_message "${1}"
+    wget -O "out.html" "${2}" || if [ "$?" != "3" ]; then exit 1; else echo "File I/O error ignored..."; fi
+    rm "out.html"
+}
+
 test_networking() {
     display_message "Testing ping ..."
     for HOST in telco0 home0 upstream; do
 	ping -c 1 ${HOST}.public
     done
-    display_message "Testing access to webui of telco0's acs ..."
-    wget -o out.html telco0.public:9000/openacs
-    rm out.html
-    display_message "Testing access to webui of telco0's apache ..."
-    wget telco0.public
-    rm index.html
-    display_message "Testing access to GenieACS ..."
-    wget telco0.public:7557/devices
-    rm devices
+    test_download_from_url "Testing access to webui of telco0's openACS ..." telco0.public:9000/openacs
+    test_download_from_url "Testing access to webui of telco0's apache ..." telco0.public
+    test_download_from_url "Testing access to webui of telco0's GenieACS ..." telco0.public:7557/devices
     NMAP_AVAILABLE=$(which nmap) || true
     if [ ! -z "${NMAP_AVAILABLE}" ]; then
 	display_message "Testing STUN  port of telco0 ..."
