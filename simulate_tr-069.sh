@@ -19,23 +19,23 @@ get_address_prefix () {
     case ${NUMBER_OF_BITS} in
 	8)
 	    echo "${IP}" | awk -F. '{ print $1 }'
-	;;
+	    ;;
 	16)
 	    echo "${IP}" | awk -F. '{ print $1"."$2 }'
-	;;
+	    ;;
 	20) # evil, hopefully not too evil
 	    echo "${IP}" | awk -F. '{ print $1"."$2"."$3 }'
-	;;
+	    ;;
 	24)
 	    echo "${IP}" | awk -F. '{ print $1"."$2"."$3 }'
-	;;
+	    ;;
 	32)
 	    echo "${IP}" | awk -F. '{ print $1"."$2"."$3"."$4 }'
-	;;
+	    ;;
 	*)
 	    echo "get_address_prefix is not prepared for such advanced address handling ..." > /dev/stderr
 	    exit 1
-	;;
+	    ;;
     esac
 }
 
@@ -122,7 +122,7 @@ display_message() {
 }
 
 version_gt() {
-  test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"
+    test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"
 }
 
 # to find a free subnet
@@ -155,40 +155,40 @@ find_addresses_for() {
 # at its IP address; the gateway only serves IPs from 100 to 199, which should be ok.
 add_helper_interface(){
     if [ ! -d "/sys/class/net/${MY_HELPER_INTERFACE}" ]; then
-       sudo ip link add "${MY_HELPER_INTERFACE}" link "${MY_DUT_INTERFACE}" type macvlan  mode bridge
-       sudo ip link set "${MY_HELPER_INTERFACE}" up
-       sudo dhclient -v -4 -i "${MY_HELPER_INTERFACE}"
-       NEW_GW_NAMESERVER=$(docker exec tr069_home0 ip addr show | grep "192.168.${HOME0_IP_ADDRES_BYTE}"  | awk -F/ '{ print $1 }' | awk '{ print $2 }')
-       if [ "${MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW}" = "NO" ]; then
-	   sudo sh poll_default_gateway.sh "${NEW_GW_NAMESERVER}" &
-       fi
-       sudo ip route add "192.168.${UPSTREAM_IP_ADDRES_BYTE}.0/24" via "${NEW_GW_NAMESERVER}" dev "${MY_HELPER_INTERFACE}"
-       IS_NETWORK_MANAGER_NOT_INSTALLED=$(dpkg -s network-manager 2>&1 | grep "not installed") || true
-       if [ "${IS_NETWORK_MANAGER_NOT_INSTALLED}" -o "${PATCH_MY_RESOLVE_CONF}"="YES" ]; then
-	   # the network-manager is not installed, so the nameserver of the simulation is not added
-	   # automatically and therefore must be added to the HOST system by patching resolv.conf
-	   rm -f /tmp/myresolv.conf
-	   {
-	       echo "${START_PATTERN}"
-	       echo "nameserver ${NEW_GW_NAMESERVER}"
-	       echo "${END_PATTERN}"
-	       cat "${RESOLV_FILE}"
-	   } >> /tmp/myresolv.conf
-	   sudo mv /tmp/myresolv.conf "${RESOLV_FILE}"
-       fi
-       if [ "${MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK}" != "NO" ]; then
-	   UPSTREAM_NETWORK=$(docker exec tr069_upstream ip route show | grep src | awk '{ print $1 }')
-	   sudo ip route add "${UPSTREAM_NETWORK}" via "${NEW_GW_NAMESERVER}"
-       fi
-   fi
+	sudo ip link add "${MY_HELPER_INTERFACE}" link "${MY_DUT_INTERFACE}" type macvlan  mode bridge
+	sudo ip link set "${MY_HELPER_INTERFACE}" up
+	sudo dhclient -v -4 -i "${MY_HELPER_INTERFACE}"
+	NEW_GW_NAMESERVER=$(docker exec tr069_home0 ip addr show | grep "192.168.${HOME0_IP_ADDRES_BYTE}"  | awk -F/ '{ print $1 }' | awk '{ print $2 }')
+	if [ "${MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW}" = "NO" ]; then
+	    sudo sh poll_default_gateway.sh "${NEW_GW_NAMESERVER}" &
+	fi
+	sudo ip route add "192.168.${UPSTREAM_IP_ADDRES_BYTE}.0/24" via "${NEW_GW_NAMESERVER}" dev "${MY_HELPER_INTERFACE}"
+	IS_NETWORK_MANAGER_NOT_INSTALLED=$(dpkg -s network-manager 2>&1 | grep "not installed") || true
+	if [ "${IS_NETWORK_MANAGER_NOT_INSTALLED}" -o "${PATCH_MY_RESOLVE_CONF}"="YES" ]; then
+	    # the network-manager is not installed, so the nameserver of the simulation is not added
+	    # automatically and therefore must be added to the HOST system by patching resolv.conf
+	    rm -f /tmp/myresolv.conf
+	    {
+		echo "${START_PATTERN}"
+		echo "nameserver ${NEW_GW_NAMESERVER}"
+		echo "${END_PATTERN}"
+		cat "${RESOLV_FILE}"
+	    } >> /tmp/myresolv.conf
+	    sudo mv /tmp/myresolv.conf "${RESOLV_FILE}"
+	fi
+	if [ "${MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK}" != "NO" ]; then
+	    UPSTREAM_NETWORK=$(docker exec tr069_upstream ip route show | grep src | awk '{ print $1 }')
+	    sudo ip route add "${UPSTREAM_NETWORK}" via "${NEW_GW_NAMESERVER}"
+	fi
+    fi
 }
 
 remove_helper_interface(){
     if [ -d "/sys/class/net/${MY_HELPER_INTERFACE}" ]; then
-       sudo ip link set "${MY_HELPER_INTERFACE}" down
-       sudo ip link del "${MY_HELPER_INTERFACE}"
-       pgrep -f "dhclient.*${MY_HELPER_INTERFACE}" | xargs sudo kill 2>/dev/null || true
-       sudo killall poll_default_gateway.sh 2>/dev/null || true
+	sudo ip link set "${MY_HELPER_INTERFACE}" down
+	sudo ip link del "${MY_HELPER_INTERFACE}"
+	pgrep -f "dhclient.*${MY_HELPER_INTERFACE}" | xargs sudo kill 2>/dev/null || true
+	sudo killall poll_default_gateway.sh 2>/dev/null || true
     fi
     pgrep -f rename_wireshark_window | xargs sudo kill 2>/dev/null || true
 }
@@ -202,9 +202,9 @@ populate_hosts() {
     mkdir -p "$(dirname ${WIRESHARK_HOSTS_FILE})"
     echo ${START_PATTERN}>>${WIRESHARK_HOSTS_FILE}
     for CONTAINER in ${CONTAINERS}; do
-       HOSTS=$(docker exec "${CONTAINER}" sh -c "cat /etc/hosts" 2>/dev/null) || true
-       WIRESHARK_DATA=$(echo "${HOSTS}" | grep -v localhost | grep -v ::) || true
-       echo "${WIRESHARK_DATA}">>${WIRESHARK_HOSTS_FILE}
+	HOSTS=$(docker exec "${CONTAINER}" sh -c "cat /etc/hosts" 2>/dev/null) || true
+	WIRESHARK_DATA=$(echo "${HOSTS}" | grep -v localhost | grep -v ::) || true
+	echo "${WIRESHARK_DATA}">>${WIRESHARK_HOSTS_FILE}
     done
     echo ${END_PATTERN}>>${WIRESHARK_HOSTS_FILE}
 }
@@ -413,18 +413,18 @@ display_settings () {
 }
 
 remove_docker_images() {
-  IMAGE_VERSION=${1:-latest}
-  DOCKER_IMAGES_TO_REMOVE=$(docker image ls | grep tr069_ | grep -F ${IMAGE_VERSION} | awk '{ print $3 }')
-  if [ "${DOCKER_IMAGES_TO_REMOVE}" != "" ]; then
-    echo "${DOCKER_IMAGES_TO_REMOVE}" | xargs docker rmi -f
-  fi
+    IMAGE_VERSION=${1:-latest}
+    DOCKER_IMAGES_TO_REMOVE=$(docker image ls | grep tr069_ | grep -F ${IMAGE_VERSION} | awk '{ print $3 }')
+    if [ "${DOCKER_IMAGES_TO_REMOVE}" != "" ]; then
+	echo "${DOCKER_IMAGES_TO_REMOVE}" | xargs docker rmi -f
+    fi
 }
 
 docker_simulation_cleanup () {
     sh "${0}" down
     DOCKER_IMAGES_TO_REMOVE=$(docker image ls | grep none | awk '{ print $3 }')
     if [ "${DOCKER_IMAGES_TO_REMOVE}" != "" ]; then
-	    echo "${DOCKER_IMAGES_TO_REMOVE}" | xargs docker rmi -f
+	echo "${DOCKER_IMAGES_TO_REMOVE}" | xargs docker rmi -f
     fi
 
     LATEST_VERSION=$(docker image ls | grep tr069_ | awk '{ if($2 != "latest") {print $2} }' | sort -rV  | head -n 1)
@@ -468,9 +468,9 @@ case ${COMMAND} in
         # Make sure only CURRENT_VERSION is used for building.
         # If version was specified by the user, it should only be used when running 'up' to start a particular version of the simulation
         if [ "${VERSION}" != "${CURRENT_VERSION}" ]; then
-          display_message "Cannot build version ${VERSION} with ${0} v${CURRENT_VERSION}."
-          echo "You have exported VERSION. VERSION may only be exported to run a particular version of the simulation, that is already installed on your machine. Use 'unset VERSION' or export VERSION=${CURRENT_VERSION} before building."
-          exit 1
+            display_message "Cannot build version ${VERSION} with ${0} v${CURRENT_VERSION}."
+            echo "You have exported VERSION. VERSION may only be exported to run a particular version of the simulation, that is already installed on your machine. Use 'unset VERSION' or export VERSION=${CURRENT_VERSION} before building."
+            exit 1
         fi
         docker_pull
         docker-compose build --no-cache
@@ -481,14 +481,14 @@ case ${COMMAND} in
         ALREADY_TAGGED=$(docker image ls | grep tr069_ | grep -F latest | awk '{ print $2 }' | head -n1)
 
         if [ -z "${LATEST_VERSION}" ] || [ -z "${ALREADY_TAGGED}" ] || ([ ! "${LATEST_VERSION}" = "${VERSION}" ] && version_gt "${VERSION}" "${LATEST_VERSION}"); then
-          echo "${VERSION} is the newest build and will be tagged as 'latest'."
-          if [ -n "${ALREADY_TAGGED}" ]; then
-            echo "Removing images with tag 'latest'..."
-            remove_docker_images latest
-          fi
-          tag_images_latest "${VERSION}"
+            echo "${VERSION} is the newest build and will be tagged as 'latest'."
+            if [ -n "${ALREADY_TAGGED}" ]; then
+		echo "Removing images with tag 'latest'..."
+		remove_docker_images latest
+            fi
+            tag_images_latest "${VERSION}"
         else
-          echo "Current latest version ${LATEST_VERSION} > ${VERSION}. This version will not be tagged as latest."
+            echo "Current latest version ${LATEST_VERSION} > ${VERSION}. This version will not be tagged as latest."
         fi
 	;;
     up)
@@ -508,18 +508,18 @@ case ${COMMAND} in
 		fi
 	    fi
 
-      # If the user has specified a particular version to start, we need to check if it can be found on the machine.
-      if [ "${VERSION}" != "$CURRENT_VERSION" ]; then
-        IMAGES=$(grep 'image: ' docker-compose.yml | grep -v "#" | cut -d':' -f 2)
-        for IMAGE in $IMAGES
-        do
-            VERSION_FOUND=$(docker image ls | grep $IMAGE | grep ${VERSION})
-            if [ -z "${VERSION}" ]; then
-              echo "Cannot find ${VERSION} on your machine."
-              exit 1
-            fi
-        done
-      fi
+	    # If the user has specified a particular version to start, we need to check if it can be found on the machine.
+	    if [ "${VERSION}" != "$CURRENT_VERSION" ]; then
+		IMAGES=$(grep 'image: ' docker-compose.yml | grep -v "#" | cut -d':' -f 2)
+		for IMAGE in $IMAGES
+		do
+		    VERSION_FOUND=$(docker image ls | grep $IMAGE | grep ${VERSION})
+		    if [ -z "${VERSION}" ]; then
+			echo "Cannot find ${VERSION} on your machine."
+			exit 1
+		    fi
+		done
+	    fi
 
 	    docker-compose up -d
 
