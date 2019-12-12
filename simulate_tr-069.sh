@@ -432,10 +432,10 @@ docker_simulation_cleanup () {
 
     # Remove latest only if latest version = ${VERSION}
     if [ -n "${LATEST_VERSION}" ] && [ "${LATEST_VERSION}" = "${VERSION}" ]; then
-      remove_docker_images latest
-      # Tag the new latest version as latest
-      LATEST_VERSION=$(docker image ls | grep tr069_ | awk '{ if($2 != "latest") {print $2} }' | sort -rV  | head -n 1)
-      tag_images_latest ${LATEST_VERSION}
+	remove_docker_images latest
+	# Tag the new latest version as latest
+	LATEST_VERSION=$(docker image ls | grep tr069_ | awk '{ if($2 != "latest") {print $2} }' | sort -rV  | head -n 1)
+	tag_images_latest "${LATEST_VERSION}"
     fi
 }
 
