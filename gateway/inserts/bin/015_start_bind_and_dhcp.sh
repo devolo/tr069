@@ -37,6 +37,7 @@ sed -i "s/THIS_LEASE_TIME/${DEFAULT_LEASE_TIME}/g" /etc/dhcp/dhcpd.conf
 sed -i "s/THIS_MAX_LEASE_TIME/${MAX_LEASE_TIME}/g" /etc/dhcp/dhcpd.conf
 
 sed -i "s/THIS_DOMAIN/${DOMAIN_TO_SERVE}/g" /etc/bind/db.192
+sed -i "s/THIS_OWN/${OWN_IP_ADDRES_BYTE}/g" /etc/bind/db.192
 HOSTNAME=$(hostname)
 sed -i "s/THIS_HOSTNAME/${HOSTNAME}/g" /etc/bind/db.192
 

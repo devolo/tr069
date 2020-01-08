@@ -10,4 +10,4 @@ $TTL    604800
                          604800 )       ; Negative Cache TTL
 ;
 @       IN      NS      THIS_HOSTNAME.
-1       IN      PTR     THIS_HOSTNAME.THIS_DOMAIN.
+THIS_OWN       IN      PTR     THIS_HOSTNAME.THIS_DOMAIN.
