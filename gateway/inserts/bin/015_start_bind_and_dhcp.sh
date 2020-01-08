@@ -25,7 +25,12 @@ fi
 
 sed -i "s/OPTION_125_WORKAROUND/${USE_OPTION_125_WORKAROUND}/g" /etc/dhcp/dhcpd.conf
 
+IP_ADDRES_BYTE_RANGE_START=${IP_ADDRES_BYTE_RANGE_START:-100}
+IP_ADDRES_BYTE_RANGE_END=${IP_ADDRES_BYTE_RANGE_END:-200}
+
 sed -i "s/THIS_BYTE/${IP_ADDRES_BYTE_TO_SERVE}/g" /etc/dhcp/dhcpd.conf
+sed -i "s/THIS_RANGE_START/${IP_ADDRES_BYTE_RANGE_START}/g" /etc/dhcp/dhcpd.conf
+sed -i "s/THIS_RANGE_END/${IP_ADDRES_BYTE_RANGE_END}/g" /etc/dhcp/dhcpd.conf
 sed -i "s/THIS_DOMAIN/${DOMAIN_TO_SERVE}/g" /etc/dhcp/dhcpd.conf
 sed -i "s/THIS_OWN/${OWN_IP_ADDRES_BYTE}/g" /etc/dhcp/dhcpd.conf
 sed -i "s/THIS_LEASE_TIME/${DEFAULT_LEASE_TIME}/g" /etc/dhcp/dhcpd.conf
