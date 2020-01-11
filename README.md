@@ -1,6 +1,6 @@
-# TR-069 - network breadboarding system (NBS) v1.3.5
+# TR-069 - network breadboarding system (NBS)
 
-a virtual TR-069 test network to connect your device under test (DUT) to openACS or GenieACS
+a virtual TR-069 test network to connect your device under test (DUT) to openACS or GenieACS via STUN/XMPP
 
   * [Overview](#overview)
   * [Prerequisites](#prerequisites)
@@ -107,6 +107,7 @@ To choose the version of the NBS to be used, just stop the current one and use e
 ## Networking
 
 Your HOST is connected by an virtual Ethernet interface to the docker network. If you do not set the environment variable MY_HELPER_INTERFACE, the default name is 'sim-tr069-net'. simulate_tr-069.sh searches for the first free 192.168.XXX.0/24 network and uses this for home0. Your HOST system will get an IP address from the home0 gateway using DHCP, your DUTs will also receive addresses from 192.168.XXX.100-110. The domain used for the home0 network is 'home0.intern'.
+In case you are using a distribution like openSUSE Tumbleweed which does not allow to use 'dhclient' when the network managent is enabled, you can set MY_HELPER_INTERFACE_IP to e.g. 192.168.XXX.250/24, with XXX equal to your first free 192.168.XXX.0/24 network.
 
 The simulated internet uses the domain '.public' for all connected containers, e.g. to ping the telco0 gateway from the HOST you can use the command `ping telco0.public`.
 
