@@ -5,7 +5,7 @@ set -e
 #set -x
 
 DEFAULT_IMAGE_VERSION="1.3.5"
-SCRIPT_VERISON="1.3.5"
+SCRIPT_VERISON="1.3.6"
 
 ################################################################################
 #
@@ -55,6 +55,7 @@ MYSQL_PORT=${MYSQL_PORT:-3306}
 MYHTTP_PORT=${MYHTTP_PORT:-8080}
 MY_DUT_INTERFACE=${MY_DUT_INTERFACE:-enp5s0.66}
 MY_HELPER_INTERFACE=${MY_HELPER_INTERFACE:-sim-tr069-net}
+MY_HELPER_INTERFACE_IP=${MY_HELPER_INTERFACE_IP:-"DHCP"}
 MY_UPSTREAM_INTERFACE=${MY_UPSTREAM_INTERFACE:-enp5s0.25}
 MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW=${MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW:-"NO"}
 MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK=${MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK:-"NO"}
@@ -158,7 +159,12 @@ add_helper_interface(){
     if [ ! -d "/sys/class/net/${MY_HELPER_INTERFACE}" ]; then
 	sudo ip link add "${MY_HELPER_INTERFACE}" link "${MY_DUT_INTERFACE}" type macvlan  mode bridge
 	sudo ip link set "${MY_HELPER_INTERFACE}" up
-	sudo dhclient -v -4 -i "${MY_HELPER_INTERFACE}"
+	if [ "${MY_HELPER_INTERFACE_IP}" = "DHCP" ]; then
+	    sudo dhclient -v -4 -i "${MY_HELPER_INTERFACE}" || ( display_message "DHCP with dhclient failed, think about using \"export MY_HELPER_INTERFACE_IP=192.168.${HOME0_IP_ADDRES_BYTE}.250/24\" ..." && exit 1)
+	else
+	    sudo ip addr add "${MY_HELPER_INTERFACE_IP}" dev "${MY_HELPER_INTERFACE}" || ( display_message "IP setup failed, think about using \"export MY_HELPER_INTERFACE_IP=192.168.${HOME0_IP_ADDRES_BYTE}.250/24\" ..." && exit 1)
+	    export PATCH_MY_RESOLVE_CONF="YES"
+	fi
 	NEW_GW_NAMESERVER=$(docker exec tr069_home0 ip addr show | grep "192.168.${HOME0_IP_ADDRES_BYTE}"  | awk -F/ '{ print $1 }' | awk '{ print $2 }')
 	if [ "${MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW}" = "NO" ]; then
 	    sudo sh poll_default_gateway.sh "${NEW_GW_NAMESERVER}" &
@@ -405,6 +411,8 @@ display_settings () {
     display_message "Settings of v${SCRIPT_VERISON} (default image v${DEFAULT_IMAGE_VERSION}):"
     echo " VERSION=${VERSION} ; image version to use"
     echo " MY_DUT_INTERFACE=${MY_DUT_INTERFACE}"
+    echo " MY_HELPER_INTERFACE=${MY_HELPER_INTERFACE}"
+    echo " MY_HELPER_INTERFACE_IP=${MY_HELPER_INTERFACE_IP}"
     echo " MY_UPSTREAM_INTERFACE=${MY_UPSTREAM_INTERFACE}"
     echo " MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW=${MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW}"
     echo " MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK=${MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK}"
