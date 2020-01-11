@@ -4,7 +4,8 @@
 set -e
 #set -x
 
-CURRENT_VERSION="1.3.5"
+DEFAULT_IMAGE_VERSION="1.3.5"
+SCRIPT_VERISON="1.3.5"
 
 ################################################################################
 #
@@ -49,7 +50,7 @@ fi
 # environment variables to follow
 #
 ################################################################################
-VERSION=${VERSION:-$CURRENT_VERSION}
+VERSION=${VERSION:-$DEFAULT_IMAGE_VERSION}
 MYSQL_PORT=${MYSQL_PORT:-3306}
 MYHTTP_PORT=${MYHTTP_PORT:-8080}
 MY_DUT_INTERFACE=${MY_DUT_INTERFACE:-enp5s0.66}
@@ -88,7 +89,7 @@ display_help_to () {
     cat README.md > "${FILE}"
     display_message "help"
     cat <<EOF  > "${FILE}"
-This is ${0}, v${CURRENT_VERSION}
+This is ${0}, v${SCRIPT_VERSION} (default image v${CURRENT_VERISON})
   used to create, configure and examine a virtual TR-069 test network. Unfortunately you need superuser rights to use this.
 
 Usage: sudo -E sh simulate_tr-069.sh [build|up|down|remove|purge_network|purge|test_setup|wireshark|help|test]
@@ -401,8 +402,8 @@ check_apparmor_tools () {
 }
 
 display_settings () {
-    display_message "Settings of V$CURRENT_VERSION:"
-    echo " VERSION=${VERSION}"
+    display_message "Settings of v${SCRIPT_VERISON} (default image v${DEFAULT_IMAGE_VERSION}):"
+    echo " VERSION=${VERSION} ; image version to use"
     echo " MY_DUT_INTERFACE=${MY_DUT_INTERFACE}"
     echo " MY_UPSTREAM_INTERFACE=${MY_UPSTREAM_INTERFACE}"
     echo " MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW=${MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW}"
@@ -467,18 +468,18 @@ display_message "Executing ${COMMAND} ..."
 
 case ${COMMAND} in
     build)
-        # Make sure only CURRENT_VERSION is used for building.
+        # Make sure only DEFAULT_IMAGE_VERSION is used for building.
         # If version was specified by the user, it should only be used when running 'up' to start a particular version of the simulation
-        if [ "${VERSION}" != "${CURRENT_VERSION}" ]; then
-            display_message "Cannot build version ${VERSION} with ${0} v${CURRENT_VERSION}."
-            echo "You have exported VERSION. VERSION may only be exported to run a particular version of the simulation, that is already installed on your machine. Use 'unset VERSION' or export VERSION=${CURRENT_VERSION} before building."
+        if [ "${VERSION}" != "${DEFAULT_IMAGE_VERSION}" ]; then
+            display_message "Cannot build version ${VERSION} with ${0} v${DEFAULT_IMAGE_VERSION}."
+            echo "You have exported VERSION. VERSION may only be exported to run a particular version of the simulation, that is already installed on your machine. Use 'unset VERSION' or export VERSION=${DEFAULT_IMAGE_VERSION} before building."
             exit 1
         fi
         docker_pull
         docker-compose build --no-cache
 
-        # Check if CURRENT_VERSION is greater than the latest version found on the machine.
-        # If so, we need to tag CURRENT_VERSION as latest and remove the previous image tagged as latest.
+        # Check if DEFAULT_IMAGE_VERSION is greater than the latest version found on the machine.
+        # If so, we need to tag DEFAULT_IMAGE_VERSION as latest and remove the previous image tagged as latest.
         LATEST_VERSION=$(docker image ls | grep tr069_ | awk '{ if($2 != "latest") {print $2} }' | sort -rV  | head -n 1)
         ALREADY_TAGGED=$(docker image ls | grep tr069_ | grep -F latest | awk '{ print $2 }' | head -n1)
 
@@ -511,7 +512,7 @@ case ${COMMAND} in
 	    fi
 
 	    # If the user has specified a particular version to start, we need to check if it can be found on the machine.
-	    if [ "${VERSION}" != "$CURRENT_VERSION" ]; then
+	    if [ "${VERSION}" != "${DEFAULT_IMAGE_VERSION}" ]; then
 		IMAGES=$(grep 'image: ' docker-compose.yml | grep -v "#" | cut -d':' -f 2)
 		for IMAGE in $IMAGES
 		do
