@@ -69,8 +69,9 @@ create_key () {
 create_root_certificate () {
     local ROOT_CA_NAME=${1}
     local PASSPHRASE=${2}
+    local MESSAGE_DIGEST=${3}
     cd ${CA_DIR}/${ROOT_CA_NAME}
-    openssl req -config openssl.cnf -key private/${ROOT_CA_NAME}.key.pem -new -x509 -days 7300 -sha256 -extensions v3_ca -out certs/${ROOT_CA_NAME}.cert.pem -passin pass:$${PASSPHRASE} -subj "/C=${COUNTRY}/ST=${STATE}/L=${LOCALITY}/O=${ORGANIZATION}/OU=${ORGANIZATIONALUNIT}/CN=${COMMONNAME} ${ROOT_CA_NAME} CA/emailAddress=${EMAIL}"
+    openssl req -config openssl.cnf -key private/${ROOT_CA_NAME}.key.pem -new -x509 -days 7300 -${MESSAGE_DIGEST} -extensions v3_ca -out certs/${ROOT_CA_NAME}.cert.pem -passin pass:$${PASSPHRASE} -subj "/C=${COUNTRY}/ST=${STATE}/L=${LOCALITY}/O=${ORGANIZATION}/OU=${ORGANIZATIONALUNIT}/CN=${COMMONNAME} ${ROOT_CA_NAME} CA/emailAddress=${EMAIL}"
     chmod 444 certs/${ROOT_CA_NAME}.cert.pem
     openssl x509 -noout -text -in certs/${ROOT_CA_NAME}.cert.pem
     # chain consists only of this single one
@@ -80,9 +81,10 @@ create_root_certificate () {
 create_root_ca () {
     local ROOT_CA_NAME=${1}
     local PASSPHRASE=${2}
+    local MESSAGE_DIGEST=${3}
     prepare_ca ${ROOT_CA_NAME} root support_csr
     create_key ${ROOT_CA_NAME} ${PASSPHRASE} ${ROOT_CA_NAME}
-    create_root_certificate ${ROOT_CA_NAME} ${PASSPHRASE}
+    create_root_certificate ${ROOT_CA_NAME} ${PASSPHRASE} ${MESSAGE_DIGEST}
 }
 
 #############################################################
@@ -161,8 +163,8 @@ if [ ! -f ${CA_DIR}/generated ]; then
 
     rm -rf ${CA_DIR}/*
 
-    create_root_ca root1 pw_root1
-    create_root_ca root2 pw_root2
+    create_root_ca root1 pw_root1 sha256
+    create_root_ca root2 pw_root2 sha512
 
     create_intermediate_ca intermediate1 pw_int1 root1 pw_root1
     create_intermediate_ca intermediate2 pw_int2 root2 pw_root2
