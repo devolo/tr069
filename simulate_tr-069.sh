@@ -171,7 +171,7 @@ add_helper_interface(){
 	fi
 	sudo ip route add "192.168.${UPSTREAM_IP_ADDRES_BYTE}.0/24" via "${NEW_GW_NAMESERVER}" dev "${MY_HELPER_INTERFACE}"
 	IS_NETWORK_MANAGER_NOT_INSTALLED=$(dpkg -s network-manager 2>&1 | grep "not installed") || true
-	if [ "${IS_NETWORK_MANAGER_NOT_INSTALLED}" -o "${PATCH_MY_RESOLVE_CONF}"="YES" ]; then
+	if [ "${IS_NETWORK_MANAGER_NOT_INSTALLED}" != "" ] || [ "${PATCH_MY_RESOLVE_CONF}" = "YES" ]; then
 	    # the network-manager is not installed, so the nameserver of the simulation is not added
 	    # automatically and therefore must be added to the HOST system by patching resolv.conf
 	    rm -f /tmp/myresolv.conf
