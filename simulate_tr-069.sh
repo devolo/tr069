@@ -79,6 +79,8 @@ WIRESHARK_HOSTS_FILE=~/.config/wireshark/hosts
 START_PATTERN="####TR069START####"
 END_PATTERN="###TR069END###"
 
+HOSTS_TO_TEST="telco0 home0 upstream"
+
 ################################################################################
 #
 # help / usage / fm / README.md
@@ -313,7 +315,7 @@ test_download_from_url() {
 
 test_networking() {
     display_message "Testing ping ..."
-    for HOST in telco0 home0 upstream; do
+    for HOST in ${HOSTS_TO_TEST}; do
 	ping -c 1 ${HOST}.public
     done
     test_download_from_url "Testing access to webui of telco0's openACS ..." telco0.public:9000/openacs
