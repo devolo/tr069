@@ -62,6 +62,7 @@ MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW=${MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT
 MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK=${MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK:-"NO"}
 PATCH_MY_RESOLVE_CONF=${PATCH_MY_RESOLVE_CONF:-"NO"}
 PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND=${PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND:-"NO"}
+PATCH_MY_HOSTS=${PATCH_MY_HOSTS:-"no"}
 
 export MYSQL_PORT
 export MYHTTP_PORT
@@ -74,6 +75,8 @@ COMMAND=${1:-"help"}
 TR069_NETWORKS_TO_SNIFF=${TR069_NETWORKS_TO_SNIFF:-""}
 
 RESOLV_FILE=/etc/resolv.conf
+HOSTS_FILE=/etc/hosts
+
 WIRESHARK_HOSTS_FILE=~/.config/wireshark/hosts
 
 START_PATTERN="####TR069START####"
@@ -219,10 +222,23 @@ populate_hosts() {
     echo ${END_PATTERN}>>${WIRESHARK_HOSTS_FILE}
 }
 
+# upstream ist the source for public IP addresses
+patch_hosts() {
+    echo ${START_PATTERN}>>${HOSTS_FILE}
+    for HOST in ${HOSTS_TO_TEST}; do
+	HOST_OUTPUT=$(docker exec tr069_upstream host ${HOST})
+	IP=$(echo ${HOST_OUTPUT} | awk '{ print $4 }')
+	FQDN=$(echo ${HOST_OUTPUT} | awk '{ print $1 }')
+	sudo echo ${IP} ${FQDN} ${HOST} >> ${HOSTS_FILE}
+    done
+    echo ${END_PATTERN}>>${HOSTS_FILE}
+ }
+
 remove_hostfs_changes() {
     # || true is meant to not fail if e.g. the files are not present
     [ -f ${WIRESHARK_HOSTS_FILE} ] && sed -i "/${START_PATTERN}/,/${END_PATTERN}/d" ${WIRESHARK_HOSTS_FILE} || true
     [ -f ${RESOLV_FILE} ] && sudo sed -i "/${START_PATTERN}/,/${END_PATTERN}/d" ${RESOLV_FILE} || true
+    [ -f ${HOSTS_FILE} ] && sed -i "/${START_PATTERN}/,/${END_PATTERN}/d" ${HOSTS_FILE} || true
 }
 
 # some checks to help the system be usable
@@ -423,6 +439,7 @@ display_settings () {
     echo " PATCH_MY_RESOLVE_CONF=${PATCH_MY_RESOLVE_CONF}"
     echo " PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND=${PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND}"
     echo " TR069_NETWORKS_TO_SNIFF=${TR069_NETWORKS_TO_SNIFF:-none}"
+    echo " PATCH_MY_HOSTS=${PATCH_MY_HOSTS}"
 }
 
 remove_docker_images() {
@@ -546,6 +563,9 @@ case ${COMMAND} in
 	    add_helper_interface
 	    populate_hosts
 	    wait_for_acs_to_start
+	    if [ "${PATCH_MY_HOSTS}" = "YES" ]; then
+		patch_hosts
+	    fi
 	    sh "${0}" test
 	    display_message "Use \"docker attach --sig-proxy=false tr069_acs\" to watch the openacs log ..."
 	fi
