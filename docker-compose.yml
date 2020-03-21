@@ -438,6 +438,7 @@ services:
     - DEFAULT_LEASE_TIME=${UPSTREAM_DEFAULT_LEASE_TIME:-600}
     - DHCLIENT_TIMEOUT=60
     - DOMAIN_TO_SERVE=public
+    - ADDITIONAL_NAMESERVER=${UPSTREAM_ADDITIONAL_NAMESERVER}
     tty: true
     container_name: tr069_upstream
     hostname: upstream
