@@ -193,6 +193,8 @@ add_helper_interface(){
 	    UPSTREAM_NETWORK=$(docker exec tr069_upstream ip route show | grep src | awk '{ print $1 }')
 	    sudo ip route add "${UPSTREAM_NETWORK}" via "${NEW_GW_NAMESERVER}"
 	fi
+	# make SSDP to be routed into the local TR-069 network, so that the home0 gateway will be seen for TR-064
+	sudo ip route add "239.0.0.0/8" dev "${MY_HELPER_INTERFACE}"
     fi
 }
 
