@@ -1,0 +1,38 @@
+HTTP/1.1 200 OK
+SERVER: [MOCKED_SERVER]
+CACHE-CONTROL: max-age=1800
+CONTENT-TYPE: text/xml; charset=utf-8
+CONTENT-LENGTH: [MOCKED_length]
+
+<?xml version="1.0"?>
+ <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+<s:Body>
+<u:[MOCKED_REQUEST_KEY]Response xmlns:[MOCKED_xmlns]>
+<NewSNRGds>[MOCKED_SNRGds]</NewSNRGds>
+<NewSNRGus>[MOCKED_SNRGus]</NewSNRGus>
+<NewSNRpsds>[MOCKED_SNRpsds]</NewSNRpsds>
+<NewSNRpsus>[MOCKED_SNRpsus]</NewSNRpsus>
+<NewSNRMTds>[MOCKED_SNRMTds]</NewSNRMTds>
+<NewSNRMTus>[MOCKED_SNRMTus]</NewSNRMTus>
+<NewLATNds>[MOCKED_LATNds]</NewLATNds>
+<NewLATNus>[MOCKED_LATNus]</NewLATNus>
+<NewFECErrors>[MOCKED_FECErrors]</NewFECErrors>
+<NewCRCErrors>[MOCKED_CRCErrors]</NewCRCErrors>
+<NewLinkStatus>[MOCKED_LinkStatus]</NewLinkStatus>
+<NewModulationType>[MOCKED_StandardUsed]</NewModulationType>
+<NewCurrentProfile>[MOCKED_CurrentProfile]</NewCurrentProfile>
+<NewUpstreamCurrRate>[MOCKED_UpstreamCurrRate]</NewUpstreamCurrRate>
+<NewDownstreamCurrRate>[MOCKED_DownstreamCurrRate]</NewDownstreamCurrRate>
+<NewUpstreamMaxRate>[MOCKED_UpstreamMaxBitRate]</NewUpstreamMaxRate>
+<NewDownstreamMaxRate>[MOCKED_DownstreamMaxBitRate]</NewDownstreamMaxRate>
+<NewUpstreamNoiseMargin>[MOCKED_UpstreamNoiseMargin]</NewUpstreamNoiseMargin>
+<NewDownstreamNoiseMargin>[MOCKED_DownstreamNoiseMargin]</NewDownstreamNoiseMargin>
+<NewUpstreamAttenuation>10</NewUpstreamAttenuation>
+<NewDownstreamAttenuation>30</NewDownstreamAttenuation>
+<NewATURVendor>41564d00</NewATURVendor>
+<NewATURCountry>0400</NewATURCountry>
+<NewUpstreamPower>510</NewUpstreamPower>
+<NewDownstreamPower>514</NewDownstreamPower>
+</u:[MOCKED_REQUEST_KEY]Response>
+</s:Body>
+</s:Envelope>

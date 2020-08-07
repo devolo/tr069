@@ -59,7 +59,16 @@ if [ -z ${NAMESERVER_FROM_DHCP} ]; then
     # Verisign DNS is as good as 8.8.8.8
     NAMESERVER_FROM_DHCP="64.6.64.6"
 fi
-sed -i "s/FORWARING_NAMESERVER/${NAMESERVER_FROM_DHCP}/g" /etc/bind/named.conf.options
+
+mylogger "Use additional nameserver: ${ADDITIONAL_NAMESERVER}"
+
+if [ -z ${ADDITIONAL_NAMESERVER} ]; then
+    NAMESERVER_TO_USE="${NAMESERVER_FROM_DHCP}"
+else
+    NAMESERVER_TO_USE="${NAMESERVER_FROM_DHCP};${ADDITIONAL_NAMESERVER}"
+fi
+
+sed -i "s/FORWARING_NAMESERVER/${NAMESERVER_TO_USE}/g" /etc/bind/named.conf.options
 
 cat /etc/dhcp/dhcpd.conf
 

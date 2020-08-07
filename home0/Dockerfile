@@ -28,6 +28,18 @@ EXPOSE 69/udp
 # Set the working directory to opt to install the content
 WORKDIR /opt
 
+############# TR-064 ###############
+RUN apt-get update && apt-get -y upgrade &&  apt-get -y install \
+	python3 \
+	python3-pip \
+	npm; \
+	pip3 install --upgrade pip; \
+	python3 -m pip install gcovr psutil requests; \
+	npm install -g mockserver
+COPY inserts/tr064/mockserver/* /opt/
+COPY inserts/tr064/ssdp-mocks/* /opt/
+############# TR-064 ###############
+
 COPY inserts/bin/* /docker-entrypoint.d/
 
 ENTRYPOINT ["docker-entrypoint.sh"]

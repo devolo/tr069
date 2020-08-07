@@ -4,8 +4,8 @@
 set -e
 #set -x
 
-DEFAULT_IMAGE_VERSION="1.3.5"
-SCRIPT_VERISON="1.3.6"
+DEFAULT_IMAGE_VERSION="1.3.6"
+SCRIPT_VERISON="1.3.7"
 
 ################################################################################
 #
@@ -53,6 +53,7 @@ fi
 VERSION=${VERSION:-$DEFAULT_IMAGE_VERSION}
 MYSQL_PORT=${MYSQL_PORT:-3306}
 MYHTTP_PORT=${MYHTTP_PORT:-8080}
+ADDITIONAL_NAMESERVER=${ADDITIONAL_NAMESERVER:-\"\"}
 MY_DUT_INTERFACE=${MY_DUT_INTERFACE:-enp5s0.66}
 MY_HELPER_INTERFACE=${MY_HELPER_INTERFACE:-sim-tr069-net}
 MY_HELPER_INTERFACE_IP=${MY_HELPER_INTERFACE_IP:-"DHCP"}
@@ -61,6 +62,7 @@ MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW=${MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT
 MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK=${MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK:-"NO"}
 PATCH_MY_RESOLVE_CONF=${PATCH_MY_RESOLVE_CONF:-"NO"}
 PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND=${PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND:-"NO"}
+PATCH_MY_HOSTS=${PATCH_MY_HOSTS:-"no"}
 
 export MYSQL_PORT
 export MYHTTP_PORT
@@ -73,10 +75,14 @@ COMMAND=${1:-"help"}
 TR069_NETWORKS_TO_SNIFF=${TR069_NETWORKS_TO_SNIFF:-""}
 
 RESOLV_FILE=/etc/resolv.conf
+HOSTS_FILE=/etc/hosts
+
 WIRESHARK_HOSTS_FILE=~/.config/wireshark/hosts
 
 START_PATTERN="####TR069START####"
 END_PATTERN="###TR069END###"
+
+HOSTS_TO_TEST="telco0 home0 upstream"
 
 ################################################################################
 #
@@ -171,7 +177,7 @@ add_helper_interface(){
 	fi
 	sudo ip route add "192.168.${UPSTREAM_IP_ADDRES_BYTE}.0/24" via "${NEW_GW_NAMESERVER}" dev "${MY_HELPER_INTERFACE}"
 	IS_NETWORK_MANAGER_NOT_INSTALLED=$(dpkg -s network-manager 2>&1 | grep "not installed") || true
-	if [ "${IS_NETWORK_MANAGER_NOT_INSTALLED}" -o "${PATCH_MY_RESOLVE_CONF}"="YES" ]; then
+	if [ "${IS_NETWORK_MANAGER_NOT_INSTALLED}" != "" ] || [ "${PATCH_MY_RESOLVE_CONF}" = "YES" ]; then
 	    # the network-manager is not installed, so the nameserver of the simulation is not added
 	    # automatically and therefore must be added to the HOST system by patching resolv.conf
 	    rm -f /tmp/myresolv.conf
@@ -187,6 +193,8 @@ add_helper_interface(){
 	    UPSTREAM_NETWORK=$(docker exec tr069_upstream ip route show | grep src | awk '{ print $1 }')
 	    sudo ip route add "${UPSTREAM_NETWORK}" via "${NEW_GW_NAMESERVER}"
 	fi
+	# make SSDP to be routed into the local TR-069 network, so that the home0 gateway will be seen for TR-064
+	sudo ip route add "239.0.0.0/8" dev "${MY_HELPER_INTERFACE}"
     fi
 }
 
@@ -216,10 +224,23 @@ populate_hosts() {
     echo ${END_PATTERN}>>${WIRESHARK_HOSTS_FILE}
 }
 
+# upstream ist the source for public IP addresses
+patch_hosts() {
+    echo ${START_PATTERN}>>${HOSTS_FILE}
+    for HOST in ${HOSTS_TO_TEST}; do
+	HOST_OUTPUT=$(docker exec tr069_upstream host ${HOST})
+	IP=$(echo ${HOST_OUTPUT} | awk '{ print $4 }')
+	FQDN=$(echo ${HOST_OUTPUT} | awk '{ print $1 }')
+	sudo echo ${IP} ${FQDN} ${HOST} >> ${HOSTS_FILE}
+    done
+    echo ${END_PATTERN}>>${HOSTS_FILE}
+ }
+
 remove_hostfs_changes() {
     # || true is meant to not fail if e.g. the files are not present
     [ -f ${WIRESHARK_HOSTS_FILE} ] && sed -i "/${START_PATTERN}/,/${END_PATTERN}/d" ${WIRESHARK_HOSTS_FILE} || true
     [ -f ${RESOLV_FILE} ] && sudo sed -i "/${START_PATTERN}/,/${END_PATTERN}/d" ${RESOLV_FILE} || true
+    [ -f ${HOSTS_FILE} ] && sed -i "/${START_PATTERN}/,/${END_PATTERN}/d" ${HOSTS_FILE} || true
 }
 
 # some checks to help the system be usable
@@ -312,7 +333,7 @@ test_download_from_url() {
 
 test_networking() {
     display_message "Testing ping ..."
-    for HOST in telco0 home0 upstream; do
+    for HOST in ${HOSTS_TO_TEST}; do
 	ping -c 1 ${HOST}.public
     done
     test_download_from_url "Testing access to webui of telco0's openACS ..." telco0.public:9000/openacs
@@ -410,6 +431,7 @@ check_apparmor_tools () {
 display_settings () {
     display_message "Settings of v${SCRIPT_VERISON} (default image v${DEFAULT_IMAGE_VERSION}):"
     echo " VERSION=${VERSION} ; image version to use"
+    echo " ADDITIONAL_NAMESERVER=${ADDITIONAL_NAMESERVER}"
     echo " MY_DUT_INTERFACE=${MY_DUT_INTERFACE}"
     echo " MY_HELPER_INTERFACE=${MY_HELPER_INTERFACE}"
     echo " MY_HELPER_INTERFACE_IP=${MY_HELPER_INTERFACE_IP}"
@@ -419,6 +441,7 @@ display_settings () {
     echo " PATCH_MY_RESOLVE_CONF=${PATCH_MY_RESOLVE_CONF}"
     echo " PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND=${PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND}"
     echo " TR069_NETWORKS_TO_SNIFF=${TR069_NETWORKS_TO_SNIFF:-none}"
+    echo " PATCH_MY_HOSTS=${PATCH_MY_HOSTS}"
 }
 
 remove_docker_images() {
@@ -542,6 +565,9 @@ case ${COMMAND} in
 	    add_helper_interface
 	    populate_hosts
 	    wait_for_acs_to_start
+	    if [ "${PATCH_MY_HOSTS}" = "YES" ]; then
+		patch_hosts
+	    fi
 	    sh "${0}" test
 	    display_message "Use \"docker attach --sig-proxy=false tr069_acs\" to watch the openacs log ..."
 	fi

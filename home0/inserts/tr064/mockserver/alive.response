@@ -1,0 +1,5 @@
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=UTF-8
+CONTENT-LENGTH: 35
+
+TR-064 Mockserver is Up and Running
