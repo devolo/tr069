@@ -1,8 +1,26 @@
 #!/bin/bash
 
-ls -la /etc/dhcp
+create_hex_string() {
+    local HEX_STRING=""
+    for CHARACTER in $(printf ${1} | xxd -g 1 -ps -c 1); do
+	if [ "${HEX_STRING}" != "" ]; then
+	    HEX_STRING="${HEX_STRING}:"
+	fi;
+	HEX_STRING="${HEX_STRING}${CHARACTER}"
+    done
+    printf "${HEX_STRING}"
+}
 
-cat /etc/dhcp/dhcpd.conf
+create_option_string() {
+    local UNUSED="${TOTAL_LENGTH}"
+    local OPTION_STRING=""
+    local HEX_OPTION=$(printf "%02x" ${1} )
+    local LENGTH=$(printf "${2}" | wc -c)
+    local HEX_LENGTH=$(printf "%02x" ${LENGTH} )
+
+    printf "${HEX_OPTION}:${HEX_LENGTH}:$(create_hex_string "${2}")"
+    return $(expr ${LENGTH} + 2)
+}
 
 MAX_LEASE_TIME="$((${DEFAULT_LEASE_TIME}*12))"
 
@@ -15,15 +33,86 @@ if [ "${MAX_LEASE_TIME}" -gt 2592000 ]; then
 fi
 
 mylogger "Use DHCP option 125 workaround for buggy clients: ${USE_OPTION_125_WORKAROUND}"
-
 if [ "${USE_OPTION_125_WORKAROUND}" = "NO" -o "${USE_OPTION_125_WORKAROUND}" = "no" -o "${USE_OPTION_125_WORKAROUND}" = "" ]; then
     USE_OPTION_125_WORKAROUND=""
 else
     mylogger "Adding option 125 to option 55 of the clients request as workaround ..."
     USE_OPTION_125_WORKAROUND="option dhcp-parameter-request-list = concat(option dhcp-parameter-request-list,7d);"
 fi
-
 sed -i "s/OPTION_125_WORKAROUND/${USE_OPTION_125_WORKAROUND}/g" /etc/dhcp/dhcpd.conf
+
+USE_OPTION_125=""
+mylogger "OPTION 125: \"${USE_OPTION_125_MODE}\""
+case "${USE_OPTION_125_MODE}" in
+    BBF)
+	## BBF OUI 00:00:0d:e9 suboptions used
+	# 4  : gateway oui
+	# 5  : gateway sn
+	# 6  : gateway product class
+	# 11 : ACS URL e.g. http://FQDN:PORT
+	# 12 : Provisioning code
+	# 13 : CWMP retry minimum wait interval
+	# 14 : CWMP retry interval multiplier
+	BFF_OUI="00:00:0d:e9"
+	GATEWAY_SN="${LOCAL_IP_ADDRESS}_01"
+        GATEWAY_OUI="303324"
+	GATEWAY_PRODUCT_CLASS="DVL_TR-069_gateway${VERSION}@${DOMAIN_TO_SERVE}"
+	TOTAL_LENGTH=0
+	USE_OPTION_125="$( create_option_string 4 ${GATEWAY_OUI} )"
+	TOTAL_LENGTH=$(expr ${TOTAL_LENGTH} + ${?})
+	USE_OPTION_125="${USE_OPTION_125}:$( create_option_string 5 ${GATEWAY_SN} )"
+	TOTAL_LENGTH=$(expr ${TOTAL_LENGTH} + ${?})
+	USE_OPTION_125="${USE_OPTION_125}:$( create_option_string 6 ${GATEWAY_PRODUCT_CLASS} )"
+	TOTAL_LENGTH=$(expr ${TOTAL_LENGTH} + ${?})
+	USE_OPTION_125="${USE_OPTION_125}:$( create_option_string 11 ${ACS_URL_TO_USE_OPTION125} )"
+	TOTAL_LENGTH=$(expr ${TOTAL_LENGTH} + ${?})
+	USE_OPTION_125="${USE_OPTION_125}:$( create_option_string 12 ${PROVISIONING_CODE} )"
+	TOTAL_LENGTH=$(expr ${TOTAL_LENGTH} + ${?})
+	USE_OPTION_125="${USE_OPTION_125}:$( create_option_string 13 ${WAIT_INTERVAL} )"
+	TOTAL_LENGTH=$(expr ${TOTAL_LENGTH} + ${?})
+	USE_OPTION_125="${USE_OPTION_125}:$( create_option_string 14 ${WAIT_INTERVAL_MULTIPLIER} )"
+	TOTAL_LENGTH=$(expr ${TOTAL_LENGTH} + ${?})
+	TOTAL_HEX_LENGTH="$(printf "%02x" ${TOTAL_LENGTH})"
+	USE_OPTION_125="option tr069-option-125 ${BFF_OUI}:${TOTAL_HEX_LENGTH}:${USE_OPTION_125};"
+    ;;
+    *)
+    mylogger "OPTION 125: ${USE_OPTION_125_MODE} -> disabled"
+esac
+sed -i "s/THIS_OPTION_125/${USE_OPTION_125}/g" /etc/dhcp/dhcpd.conf
+
+mylogger "Use DHCP option 43 workaround for buggy clients: ${USE_OPTION_43_WORKAROUND}"
+if [ "${USE_OPTION_43_WORKAROUND}" = "NO" -o "${USE_OPTION_43_WORKAROUND}" = "no" -o "${USE_OPTION_43_WORKAROUND}" = "" ]; then
+    USE_OPTION_43_WORKAROUND=""
+else
+    mylogger "Adding option 43 to option 55 of the clients request as workaround ..."
+    USE_OPTION_43_WORKAROUND="option dhcp-parameter-request-list = concat(option dhcp-parameter-request-list,2b);"
+fi
+sed -i "s/OPTION_43_WORKAROUND/${USE_OPTION_43_WORKAROUND}/g" /etc/dhcp/dhcpd.conf
+
+USE_OPTION_43=""
+mylogger "OPTION 43: \"${USE_OPTION_43_MODE}\""
+case "${USE_OPTION_43_MODE}" in
+    BBF)
+	# 1 : ACS URL e.g. http://FQDN:PORT
+	# 2 : Provisioning code
+	# 3 : CWMP retry minimum wait interval
+	# 4 : CWMP retry interval multiplier
+	TOTAL_LENGTH=0
+	USE_OPTION_43="$( create_option_string 1 ${ACS_URL_TO_USE_OPTION43} )"
+	TOTAL_LENGTH=$(expr ${TOTAL_LENGTH} + ${?})
+	USE_OPTION_43="${USE_OPTION_43}:$( create_option_string 2 ${PROVISIONING_CODE} )"
+	TOTAL_LENGTH=$(expr ${TOTAL_LENGTH} + ${?})
+	USE_OPTION_43="${USE_OPTION_43}:$( create_option_string 3 ${WAIT_INTERVAL} )"
+	TOTAL_LENGTH=$(expr ${TOTAL_LENGTH} + ${?})
+	USE_OPTION_43="${USE_OPTION_43}:$( create_option_string 4 ${WAIT_INTERVAL_MULTIPLIER} )"
+	TOTAL_LENGTH=$(expr ${TOTAL_LENGTH} + ${?})
+	TOTAL_HEX_LENGTH="$(printf "%02x" ${TOTAL_LENGTH})"
+	USE_OPTION_43="option tr069-option-43 ${TOTAL_HEX_LENGTH}:${USE_OPTION_43};"
+    ;;
+    *)
+    mylogger "OPTION 43: ${USE_OPTION_43_MODE} -> disabled"
+esac
+sed -i "s/THIS_OPTION_43/${USE_OPTION_43}/g" /etc/dhcp/dhcpd.conf
 
 IP_ADDRES_BYTE_RANGE_START=${IP_ADDRES_BYTE_RANGE_START:-100}
 IP_ADDRES_BYTE_RANGE_END=${IP_ADDRES_BYTE_RANGE_END:-200}
