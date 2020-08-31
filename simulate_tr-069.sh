@@ -313,7 +313,7 @@ check_log_periodically_until() {
     display_message "Waiting for ${ACS_NAME} to start ..."
     for TRY in $(seq 1 140); do
 	echo "${TRY}"
-	ACS_STARTED_UP=$(docker-compose logs | grep "${STRING_TO_CHECK}") || true
+	ACS_STARTED_UP=$(docker logs tr069_${ACS_NAME} | grep "${STRING_TO_CHECK}") || true
 	if [ ! -z "${ACS_STARTED_UP}" ]; then
 	    echo "${ACS_NAME} is up and running!"
 	    break;
