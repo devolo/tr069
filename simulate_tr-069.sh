@@ -98,7 +98,7 @@ WIRESHARK_HOSTS_FILE=~/.config/wireshark/hosts
 START_PATTERN="####TR069START####"
 END_PATTERN="###TR069END###"
 
-HOSTS_TO_TEST="telco0 home0 upstream"
+HOSTS_TO_TEST="telco0 home0 upstream mqttbroker elastic"
 
 ################################################################################
 #
@@ -328,10 +328,13 @@ check_log_periodically_until() {
 }
 
 
-# continue only after the openacs has been started by jboss, and genieacs is up and running
-wait_for_acs_to_start() {
-    check_log_periodically_until openacs "Started in"
+wait_for_container_to_start() {
+    # continue only after the openacs has been started by jboss, and genieacs is up and running
+    check_log_periodically_until acs "Started in"
+    # continue only after genieacs is up and running
     check_log_periodically_until genieacs "spawned: 'genieacs-ui'"
+    # continue only after elasicsearch is up and running
+    check_log_periodically_until elastic "elasticsearch running"
 }
 
 # errors were seen due to an old ubuntu:18.04 image ... pull it to be up to date
@@ -588,7 +591,7 @@ case ${COMMAND} in
 	    fi
 	    add_helper_interface
 	    populate_hosts
-	    wait_for_acs_to_start
+	    wait_for_container_to_start
 	    if [ "${PATCH_MY_HOSTS}" = "YES" ]; then
 		patch_hosts
 	    fi
