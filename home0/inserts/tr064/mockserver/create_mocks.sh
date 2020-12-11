@@ -23,10 +23,10 @@ show_help() {
     echo "                    * TR181"
     echo "                    * DATASET_SP_17a"
     echo ""
-    echo "     DEVICE_SpeedportSmart3 (profile 17a) \\"
+    echo "     DEVICE_SpeedportSmart3 (profile 17a)  \\"
     echo "     DEVICE_Fritz7590       (profile 30a)   }-> mocking this device"
     echo "     DEVICE_Fritz7490       (profile 17a)  /"
-    echo "     DEVICE_Fritz7490_old   (no support)  /"
+    echo "     DEVICE_Fritz7490_without_support     /"
     echo "     TR181   -> responding to GetParameterValues for"
     echo "                Device.DSL.Line.1.TestParams. with 200 and data"
     echo "     TR098   -> responding to X_GENERIC_GetVDSLInfo with"
@@ -196,12 +196,6 @@ set_profile() {
 	    printf "urn:dslforum-org:service:InternetGatewayDevice:1" > ST
 	    printf "X_AVM-DE_GetDSLInfo" > REQUEST_KEY
 	    ;;
-	Fritz7490_old)
-	    printf "FRITZ!Box 7490 UPnP/1.0 AVM FRITZ!Box 7490 113.07.12" > SERVER
-	    printf 'u="urn:dslforum-org:service:WANDSLInterfaceConfig:1"' > xmlns
-	    printf "urn:dslforum-org:service:InternetGatewayDevice:1" > ST
-	    printf "X_AVM-DE_GetDSLInfo" > REQUEST_KEY
-	    ;;
 	DEVICE_SpeedportSmart3)
         set_profile DATASET_SP_17a
 	    set_profile TR181
@@ -217,10 +211,10 @@ set_profile() {
 	    set_profile TR098
 	    set_profile Fritz7490
 	    ;;
-	DEVICE_Fritz7490_old)
+	DEVICE_Fritz7490_without_support)
 	    set_profile TR098
 	    set_profile 500
-	    set_profile Fritz7490_old
+	    set_profile Fritz7490
 	    ;;
 	*)
 	    DATA_DIR="${1}"
@@ -265,7 +259,7 @@ check_mocking_services() {
 	MOCK_NAME=$(basename "${FILE}")
 	MOCKED_DATA_OLD_CONTENT="$(cat .${MOCK_NAME}_OLD_CONTENT)"
 	MOCKED_DATA_CONTENT="$(cat ${DATA_DIR}/${MOCK_NAME})"
-	echo ${MOCKED_DATA_CONTENT}>.${MOCK_NAME}_OLD_CONTENT
+	echo "${MOCKED_DATA_CONTENT}">.${MOCK_NAME}_OLD_CONTENT
 	if [ "${MOCKED_DATA_OLD_CONTENT}" != "${MOCKED_DATA_CONTENT}" ]; then
 	    RESTART_SSPD="yes"
 	fi
