@@ -80,7 +80,7 @@ The NBS can be connected to an external network for services like NTP, e.g. the 
 
 ### DHCP and network manager
 
-Normally you will have a running network manager on your Ubuntu HOST which will be responsible to integrate the name server of the home0 gateway into your system. If this is not the case, you can `export PATCH_MY_RESOLVE_CONF=YES` to patch /ect/resolf.conf automatically, so you are able to resolve names. This patch will be removed on stopping the NBS.
+Normally you will have a running network manager on your Ubuntu HOST which will be responsible to integrate the name server of the home0 gateway into your system. If this is not the case, you can `export PATCH_MY_RESOLVE_CONF=YES` to patch /etc/resolv.conf automatically, so you are able to resolve names. This patch will be removed on stopping the NBS.
 
 ### Upstream network and default gateway behavior
 
