@@ -228,7 +228,7 @@ remove_helper_interface(){
 # this is not atomic and may fail if some changes to WIRESHARK_HOSTS_FILE are done by the
 # system during populate_hosts ...
 populate_hosts() {
-    CONTAINERS=$(docker ps --format '{{.Names}}' )
+    CONTAINERS=$(docker ps --format '{{.Names}}'| grep tr069_ )
 
     mkdir -p "$(dirname ${WIRESHARK_HOSTS_FILE})"
     echo ${START_PATTERN}>>${WIRESHARK_HOSTS_FILE}
@@ -590,8 +590,8 @@ case ${COMMAND} in
 		done
 	    fi
 	    add_helper_interface
-	    populate_hosts
 	    wait_for_container_to_start
+	    populate_hosts
 	    if [ "${PATCH_MY_HOSTS}" = "YES" ]; then
 		patch_hosts
 	    fi
