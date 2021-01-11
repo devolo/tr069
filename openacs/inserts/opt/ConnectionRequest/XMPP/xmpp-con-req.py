@@ -8,11 +8,11 @@ username="acs"
 password="devolo" 
 
 #XMPP server is 'xmpp' in our internal network, telco0 to externals
-server = ('xmpp', 5222)
-domain="telco0"
-resource="" 
+server = ('xmpp.public', 5222)
+domain="xmpp.public"
+resource=""
 
-agent="cpe@telco0/my_fixed_xmpp_resource"
+agent="cpe@xmpp.public/my_fixed_xmpp_resource"
 
 crs_username="Admin" 
 crs_password="devolo" 
