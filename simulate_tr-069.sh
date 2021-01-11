@@ -126,6 +126,7 @@ Usage: sudo -E sh simulate_tr-069.sh [build|up|down|remove|purge_network|purge|t
     * purge         : executes 'down' and removes all tr069 images
     * test_setup    : executes 'remove', 'build' and 'up'
     * wireshark     : starts wireshark to sniff the given network; if no network name given, displays available network names
+    * list          : list network names
     * help          : displays this text
     * test          : executes some basic networking tests
 EOF
@@ -387,6 +388,20 @@ get_interface_to_sniff() {
 	fi
     fi
     echo "${INTERFACE_TO_SNIFF}"
+}
+
+NETWORK_ITEM_GLUE="-"
+list_networks() {
+    NETWORK_LIST=$(docker network ls | grep tr069_ | awk -v _=${NETWORK_ITEM_GLUE} '{ print $1_$2 }')
+    for NETWORK_ITEM in ${NETWORK_LIST}; do
+	NETWORK=$(echo ${NETWORK_ITEM} | awk -F"${NETWORK_ITEM_GLUE}" '{ print $1 }')
+	NETWORK_NAME=$(echo ${NETWORK_ITEM} | awk -F"${NETWORK_ITEM_GLUE}" '{ print $2 }')
+	INTERFACE_NAME=$(docker network inspect --format '{{ .Options.parent }}' "${NETWORK}")
+	if [ "${INTERFACE_NAME}" = "<no value>" ]; then
+	    INTERFACE_NAME="dm-${NETWORK}"
+	fi
+	echo "${NETWORK_NAME}\t${NETWORK}\t${INTERFACE_NAME}"
+    done
 }
 
 # to sniff the traffic in the correct docker network
@@ -677,6 +692,9 @@ case ${COMMAND} in
 	;;
     test)
 	test_networking
+	;;
+    list)
+	list_networks
 	;;
     *)
 	display_help_to /dev/stderr
