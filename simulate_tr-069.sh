@@ -676,11 +676,11 @@ case ${COMMAND} in
 	    sh "${0}" down
 	    sh "${0}" up
 	    display_message "Please check the detected profile changes and allow them all  ..."
-	    aa-logprof -d /etc/apparmor.d
+	    aa-logprof -d /etc/apparmor.d || echo "Error at checking profiles ..."
 	    display_message "Enforcing all AppArmor profiles again ..."
-	    aa-enforce /etc/apparmor.d/*
+	    aa-enforce /etc/apparmor.d/* || echo "Error at enforcing profiles ..."
 	    display_message "Restarting AppArmor ..."
-	    systemctl reload apparmor.service
+	    systemctl reload apparmor.service || echo "Error ar retstarting AppArmor ..."
 	else
 	    display_message "You did not install \"aa-genprof\" to generate an apparmor profile for this simulation or \"aa-notify\" to check installed profiled. Remove /tmp/no_aa_tools_wished to choose again ..."
 	fi
