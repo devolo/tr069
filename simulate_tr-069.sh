@@ -524,6 +524,18 @@ tag_images_latest() {
     fi
 }
 
+check_openacs_image() {
+    ACS_AVAILABLE=$(docker image ls | grep _acs | grep 1.3.6 | grep 1.17) || echo no ACS
+
+    if [ "${ACS_AVAILABLE}a" = "a" ]; then
+	if [ ! -f ./openacs/image/openACS.gz ]; then
+	    cat ./openacs/image/openACS.a? > ./openacs/image/openACS.gz
+	fi
+	docker image load -i ./openacs/image/openACS.gz
+    fi
+
+}
+
 ################################################################################
 #
 # MAINLINE
@@ -549,6 +561,7 @@ case ${COMMAND} in
             exit 1
         fi
         docker_pull
+        check_openacs_image
         docker-compose build --no-cache
 
         # Check if DEFAULT_IMAGE_VERSION is greater than the latest version found on the machine.
@@ -596,7 +609,7 @@ case ${COMMAND} in
 		    fi
 		done
 	    fi
-
+	    check_openacs_image
 	    docker-compose up -d
 
 	    if [ ! -z "${TR069_NETWORKS_TO_SNIFF}" ]; then
