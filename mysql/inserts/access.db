@@ -1,2 +1,0 @@
-Grant All Privileges ON *.* to 'root'@'%' Identified By 'password';
-FLUSH PRIVILEGES;

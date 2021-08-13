@@ -1,2 +1,0 @@
-User: Admin
-Password: devolo

@@ -41,5 +41,6 @@ COPY inserts/tr064/ssdp-mocks/* /opt/
 ############# TR-064 ###############
 
 COPY inserts/bin/* /docker-entrypoint.d/
+RUN sed -i -E "s/^#* *timeout [0-9]*;/timeout ${DHCLIENT_TIMEOUT:-70};/g" /etc/dhcp/dhclient.conf
 
 ENTRYPOINT ["docker-entrypoint.sh"]

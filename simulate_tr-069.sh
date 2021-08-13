@@ -51,41 +51,12 @@ fi
 #
 ################################################################################
 VERSION=${VERSION:-$DEFAULT_IMAGE_VERSION}
-MYSQL_PORT=${MYSQL_PORT:-3306}
-MYHTTP_PORT=${MYHTTP_PORT:-8080}
-ADDITIONAL_NAMESERVER=${ADDITIONAL_NAMESERVER:-\"\"}
-MY_DUT_INTERFACE=${MY_DUT_INTERFACE:-enp5s0.66}
-MY_HELPER_INTERFACE=${MY_HELPER_INTERFACE:-sim-tr069-net}
-MY_HELPER_INTERFACE_IP=${MY_HELPER_INTERFACE_IP:-"DHCP"}
-MY_UPSTREAM_INTERFACE=${MY_UPSTREAM_INTERFACE:-enp5s0.25}
-MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW=${MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW:-"NO"}
-MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK=${MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK:-"NO"}
-PATCH_MY_RESOLVE_CONF=${PATCH_MY_RESOLVE_CONF:-"NO"}
-PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND=${PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND:-"NO"}
-PATCH_MY_DHCP_SERVER_FOR_OPTION_43_WORKAROUND=${PATCH_MY_DHCP_SERVER_FOR_OPTION_43_WORKAROUND:-"NO"}
-PATCH_MY_HOSTS=${PATCH_MY_HOSTS:-"no"}
-ACS_URL_TO_USE_OPTION125=${ACS_URL_TO_USE_OPTION125:-http://telco0.public:7547}
-ACS_URL_TO_USE_OPTION43=${ACS_URL_TO_USE_OPTION43:-http://telco0.public:9000/openacs/acs}
-PROVISIONING_CODE=${PROVISIONING_CODE:-code12345}
-WAIT_INTERVAL=${WAIT_INTERVAL:-86400}
-WAIT_INTERVAL_MULTIPLIER=${WAIT_INTERVAL_MULTIPLIER:-1}
-USE_OPTION_125_MODE=${USE_OPTION_125_MODE:-BBF}
-USE_OPTION_43_MODE=${USE_OPTION_43_MODE:-BBF}
+MY_DUT_INTERFACE=${MY_DUT_INTERFACE:-enp0s25}
+HOME0_OWN_IP_ADDRES_BYTE=${HOME0_OWN_IP_ADDRES_BYTE:-100}
 
-export MYSQL_PORT
-export MYHTTP_PORT
 export MY_DUT_INTERFACE
-export MY_UPSTREAM_INTERFACE
-export PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND
-export PATCH_MY_DHCP_SERVER_FOR_OPTION_43_WORKAROUND
 export VERSION
-export ACS_URL_TO_USE_OPTION125
-export ACS_URL_TO_USE_OPTION43
-export PROVISIONING_CODE
-export WAIT_INTERVAL
-export WAIT_INTERVAL_MULTIPLIER
-export USE_OPTION_125_MODE
-export USE_OPTION_43_MODE
+export HOME0_OWN_IP_ADDRES_BYTE
 
 COMMAND=${1:-"help"}
 TR069_NETWORKS_TO_SNIFF=${TR069_NETWORKS_TO_SNIFF:-""}
@@ -98,7 +69,7 @@ WIRESHARK_HOSTS_FILE=~/.config/wireshark/hosts
 START_PATTERN="####TR069START####"
 END_PATTERN="###TR069END###"
 
-HOSTS_TO_TEST="telco0 home0 upstream mqttbroker elastic"
+HOSTS_TO_TEST="home0"
 
 ################################################################################
 #
@@ -128,7 +99,6 @@ Usage: sudo -E sh simulate_tr-069.sh [build|up|down|remove|purge_network|purge|t
     * wireshark     : starts wireshark to sniff the given network; if no network name given, displays available network names
     * list          : list network names
     * help          : displays this text
-    * test          : executes some basic networking tests
 EOF
 }
 
@@ -176,55 +146,6 @@ find_addresses_for() {
     fi
 }
 
-# to connect the host system to the simulated world ... the host uses the fixed last byte of 200
-# at its IP address; the gateway only serves IPs from 100 to 199, which should be ok.
-add_helper_interface(){
-    if [ ! -d "/sys/class/net/${MY_HELPER_INTERFACE}" ]; then
-	sudo ip link add "${MY_HELPER_INTERFACE}" link "${MY_DUT_INTERFACE}" type macvlan  mode bridge
-	sudo ip link set "${MY_HELPER_INTERFACE}" up
-	if [ "${MY_HELPER_INTERFACE_IP}" = "DHCP" ]; then
-	    sudo dhclient -v -4 -i "${MY_HELPER_INTERFACE}" || ( display_message "DHCP with dhclient failed, think about using \"export MY_HELPER_INTERFACE_IP=192.168.${HOME0_IP_ADDRES_BYTE}.250/24\" ..." && exit 1)
-	else
-	    sudo ip addr add "${MY_HELPER_INTERFACE_IP}" dev "${MY_HELPER_INTERFACE}" || ( display_message "IP setup failed, think about using \"export MY_HELPER_INTERFACE_IP=192.168.${HOME0_IP_ADDRES_BYTE}.250/24\" ..." && exit 1)
-	    export PATCH_MY_RESOLVE_CONF="YES"
-	fi
-	NEW_GW_NAMESERVER=$(docker exec tr069_home0 ip addr show | grep "192.168.${HOME0_IP_ADDRES_BYTE}"  | awk -F/ '{ print $1 }' | awk '{ print $2 }')
-	if [ "${MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW}" = "NO" ]; then
-	    sudo sh poll_default_gateway.sh "${NEW_GW_NAMESERVER}" &
-	fi
-	sudo ip route add "192.168.${UPSTREAM_IP_ADDRES_BYTE}.0/24" via "${NEW_GW_NAMESERVER}" dev "${MY_HELPER_INTERFACE}"
-	IS_NETWORK_MANAGER_NOT_INSTALLED=$(dpkg -s network-manager 2>&1 | grep "not installed") || true
-	if [ "${IS_NETWORK_MANAGER_NOT_INSTALLED}" != "" ] || [ "${PATCH_MY_RESOLVE_CONF}" = "YES" ]; then
-	    # the network-manager is not installed, so the nameserver of the simulation is not added
-	    # automatically and therefore must be added to the HOST system by patching resolv.conf
-	    rm -f /tmp/myresolv.conf
-	    {
-		echo "${START_PATTERN}"
-		echo "nameserver ${NEW_GW_NAMESERVER}"
-		echo "${END_PATTERN}"
-		cat "${RESOLV_FILE}"
-	    } >> /tmp/myresolv.conf
-	    sudo mv /tmp/myresolv.conf "${RESOLV_FILE}"
-	fi
-	if [ "${MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK}" != "NO" ]; then
-	    UPSTREAM_NETWORK=$(docker exec tr069_upstream ip route show | grep src | awk '{ print $1 }')
-	    sudo ip route add "${UPSTREAM_NETWORK}" via "${NEW_GW_NAMESERVER}"
-	fi
-	# make SSDP to be routed into the local TR-069 network, so that the home0 gateway will be seen for TR-064
-	sudo ip route add "239.0.0.0/8" dev "${MY_HELPER_INTERFACE}"
-    fi
-}
-
-remove_helper_interface(){
-    if [ -d "/sys/class/net/${MY_HELPER_INTERFACE}" ]; then
-	sudo ip link set "${MY_HELPER_INTERFACE}" down
-	sudo ip link del "${MY_HELPER_INTERFACE}"
-	pgrep -f "dhclient.*${MY_HELPER_INTERFACE}" | xargs sudo kill 2>/dev/null || true
-	sudo killall poll_default_gateway.sh 2>/dev/null || true
-    fi
-    pgrep -f rename_wireshark_window | xargs sudo kill 2>/dev/null || true
-}
-
 # to throw away the added hosts easily, insert them between the start and end pattern
 # this is not atomic and may fail if some changes to WIRESHARK_HOSTS_FILE are done by the
 # system during populate_hosts ...
@@ -240,18 +161,6 @@ populate_hosts() {
     done
     echo ${END_PATTERN}>>${WIRESHARK_HOSTS_FILE}
 }
-
-# upstream ist the source for public IP addresses
-patch_hosts() {
-    echo ${START_PATTERN}>>${HOSTS_FILE}
-    for HOST in ${HOSTS_TO_TEST}; do
-	HOST_OUTPUT=$(docker exec tr069_upstream host ${HOST})
-	IP=$(echo ${HOST_OUTPUT} | awk '{ print $4 }')
-	FQDN=$(echo ${HOST_OUTPUT} | awk '{ print $1 }')
-	sudo echo ${IP} ${FQDN} ${HOST} >> ${HOSTS_FILE}
-    done
-    echo ${END_PATTERN}>>${HOSTS_FILE}
- }
 
 remove_hostfs_changes() {
     # || true is meant to not fail if e.g. the files are not present
@@ -307,69 +216,11 @@ check_tools() {
     fi
 }
 
-# poll the log and wait for the magic string ...
-check_log_periodically_until() {
-    ACS_NAME="${1}"
-    STRING_TO_CHECK="${2}"
-    display_message "Waiting for ${ACS_NAME} to start ..."
-    for TRY in $(seq 1 140); do
-	echo "${TRY}"
-	ACS_STARTED_UP=$(docker logs tr069_${ACS_NAME} | grep "${STRING_TO_CHECK}") || true
-	if [ ! -z "${ACS_STARTED_UP}" ]; then
-	    echo "${ACS_NAME} is up and running!"
-	    break;
-	else
-	    sleep 1
-	fi
-    done
-    if [ -z "${ACS_STARTED_UP}" ]; then
-	display_message "Sorry, no ${ACS_NAME} ..."
-	exit 3
-    fi
-}
-
-
-wait_for_container_to_start() {
-    # continue only after the openacs has been started by jboss, and genieacs is up and running
-    check_log_periodically_until acs "Started in"
-    # continue only after genieacs is up and running
-    check_log_periodically_until genieacs "spawned: 'genieacs-ui'"
-    # continue only after elasicsearch is up and running
-    check_log_periodically_until elastic "elasticsearch running"
-}
-
 # errors were seen due to an old ubuntu:18.04 image ... pull it to be up to date
 docker_pull() {
     docker pull ubuntu:18.04
     docker pull ubuntu:12.04
     echo ""
-}
-
-test_download_from_url() {
-    display_message "${1}"
-    wget -O "out.html" "${2}" || if [ "$?" != "3" ]; then exit 1; else echo "File I/O error ignored..."; fi
-    rm "out.html"
-}
-
-test_networking() {
-    display_message "Testing ping ..."
-    for HOST in ${HOSTS_TO_TEST}; do
-	ping -c 1 ${HOST}.public
-    done
-    test_download_from_url "Testing access to webui of telco0's openACS ..." telco0.public:9000/openacs
-    test_download_from_url "Testing access to webui of telco0's apache ..." telco0.public
-    test_download_from_url "Testing access to webui of telco0's GenieACS ..." telco0.public:7557/devices
-    NMAP_AVAILABLE=$(which nmap) || true
-    if [ ! -z "${NMAP_AVAILABLE}" ]; then
-	display_message "Testing STUN  port of telco0 ..."
-	RESULT=$(nmap -sU -p 3478 telco0.public | grep open) || true
-	if [ -z "${RESULT}" ]; then
-	    display_message "Sorry, no STUN port ..."
-	    exit 4
-	fi
-    else
-	display_message "Sorry, no nmap, no port testing ..."
-    fi
 }
 
 set_correct_wireshark_window_name() {
@@ -465,25 +316,9 @@ check_apparmor_tools () {
 display_settings () {
     display_message "Settings of v${SCRIPT_VERISON} (default image v${DEFAULT_IMAGE_VERSION}):"
     echo " VERSION=${VERSION} ; image version to use"
-    echo " ADDITIONAL_NAMESERVER=${ADDITIONAL_NAMESERVER}"
     echo " MY_DUT_INTERFACE=${MY_DUT_INTERFACE}"
-    echo " MY_HELPER_INTERFACE=${MY_HELPER_INTERFACE}"
-    echo " MY_HELPER_INTERFACE_IP=${MY_HELPER_INTERFACE_IP}"
-    echo " MY_UPSTREAM_INTERFACE=${MY_UPSTREAM_INTERFACE}"
-    echo " MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW=${MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW}"
-    echo " MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK=${MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK}"
-    echo " PATCH_MY_RESOLVE_CONF=${PATCH_MY_RESOLVE_CONF}"
-    echo " PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND=${PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND}"
-    echo " PATCH_MY_DHCP_SERVER_FOR_OPTION_43_WORKAROUND=${PATCH_MY_DHCP_SERVER_FOR_OPTION_43_WORKAROUND}"
     echo " TR069_NETWORKS_TO_SNIFF=${TR069_NETWORKS_TO_SNIFF:-none}"
-    echo " PATCH_MY_HOSTS=${PATCH_MY_HOSTS}"
-    echo " ACS_URL_TO_USE_OPTION125=${ACS_URL_TO_USE_OPTION125}"
-    echo " ACS_URL_TO_USE_OPTION43=${ACS_URL_TO_USE_OPTION43}"
-    echo " PROVISIONING_CODE=${PROVISIONING_CODE}"
-    echo " WAIT_INTERVAL=${WAIT_INTERVAL}"
-    echo " WAIT_INTERVAL_MULTIPLIER=${WAIT_INTERVAL_MULTIPLIER}"
-    echo " USE_OPTION_125_MODE=${USE_OPTION_125_MODE}"
-    echo " USE_OPTION_43_MODE=${USE_OPTION_43_MODE}"
+    echo " HOME0_OWN_IP_ADDRES_BYTE=${HOME0_OWN_IP_ADDRES_BYTE}"
 }
 
 remove_docker_images() {
@@ -533,7 +368,6 @@ tag_images_latest() {
 display_settings
 
 check_interface "${MY_DUT_INTERFACE}" "MY_DUT_INTERFACE" "69"
-check_interface "${MY_UPSTREAM_INTERFACE}" "MY_UPSTREAM_INTERFACE" "25"
 
 check_tools
 
@@ -574,8 +408,6 @@ case ${COMMAND} in
 	else
 	    display_message "Checking IP addresses ..."
 	    find_addresses_for home0
-	    find_addresses_for telco0
-	    find_addresses_for upstream
 	    echo ""
 	    if [ ! -f /tmp/no_aa_tools_wished ]; then
 		AA_NOTIFY_RUNNING=$(pgrep aa-notify) || true
@@ -604,14 +436,8 @@ case ${COMMAND} in
 		    sh "${0}" wireshark "${NETWORK_TO_SNIFF}" &
 		done
 	    fi
-	    add_helper_interface
-	    wait_for_container_to_start
 	    populate_hosts
-	    if [ "${PATCH_MY_HOSTS}" = "YES" ]; then
-		patch_hosts
-	    fi
-	    sh "${0}" test
-	    display_message "Use \"docker attach --sig-proxy=false tr069_acs\" to watch the openacs log ..."
+	    display_message "Use \"docker attach --sig-proxy=false tr069_home0\" to watch the home0 gateway log ..."
 	fi
 	;;
     down)
@@ -625,7 +451,6 @@ case ${COMMAND} in
 	    done
 	fi
 	remove_hostfs_changes
-	remove_helper_interface
 	docker-compose down
 	;;
     purge_network)
@@ -689,9 +514,6 @@ case ${COMMAND} in
 	sh "${0}" remove
 	sh "${0}" build
 	sh "${0}" up
-	;;
-    test)
-	test_networking
 	;;
     list)
 	list_networks
