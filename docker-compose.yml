@@ -110,6 +110,51 @@ services:
     depends_on:
       - telco0
 
+  mqttbroker:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    tty: true
+    container_name: tr069_mqttbroker
+    hostname: mqttbroker
+    image: tr069_mqttbroker:${VERSION:-latest}
+    build:
+        context: ./mqttbroker
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    depends_on:
+      - upstream
+    expose:
+      # Opens mqttbroker ports on the container
+      - 1883
+    networks:
+      internet:
+
+  elastic:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    tty: true
+    container_name: tr069_elastic
+    hostname: elastic
+    image: tr069_elastic:${VERSION:-latest}
+    build:
+        context: ./elastic
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    depends_on:
+      - upstream
+    expose:
+      # Opens elastic ports on the container
+      - 9200
+    networks:
+      internet:
 
   acs:
     environment:

@@ -12,7 +12,8 @@ USER root
 
 # store container version
 RUN echo "openacs ${VERSION}" >> /etc/container-version
-
+RUN sed -i 's/archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list && \
+    sed -i 's/security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list
 RUN apt-get update && apt-get -y upgrade && apt-get -y install \
     mysql-server \
     default-jdk \

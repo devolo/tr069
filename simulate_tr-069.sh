@@ -4,8 +4,8 @@
 set -e
 #set -x
 
-DEFAULT_IMAGE_VERSION="1.3.6"
-SCRIPT_VERISON="1.3.7"
+DEFAULT_IMAGE_VERSION="1.3.7"
+SCRIPT_VERISON="1.3.8"
 
 ################################################################################
 #
@@ -98,7 +98,7 @@ WIRESHARK_HOSTS_FILE=~/.config/wireshark/hosts
 START_PATTERN="####TR069START####"
 END_PATTERN="###TR069END###"
 
-HOSTS_TO_TEST="telco0 home0 upstream"
+HOSTS_TO_TEST="telco0 home0 upstream mqttbroker elastic"
 
 ################################################################################
 #
@@ -126,6 +126,7 @@ Usage: sudo -E sh simulate_tr-069.sh [build|up|down|remove|purge_network|purge|t
     * purge         : executes 'down' and removes all tr069 images
     * test_setup    : executes 'remove', 'build' and 'up'
     * wireshark     : starts wireshark to sniff the given network; if no network name given, displays available network names
+    * list          : list network names
     * help          : displays this text
     * test          : executes some basic networking tests
 EOF
@@ -228,7 +229,7 @@ remove_helper_interface(){
 # this is not atomic and may fail if some changes to WIRESHARK_HOSTS_FILE are done by the
 # system during populate_hosts ...
 populate_hosts() {
-    CONTAINERS=$(docker ps --format '{{.Names}}' )
+    CONTAINERS=$(docker ps --format '{{.Names}}'| grep tr069_ )
 
     mkdir -p "$(dirname ${WIRESHARK_HOSTS_FILE})"
     echo ${START_PATTERN}>>${WIRESHARK_HOSTS_FILE}
@@ -313,7 +314,7 @@ check_log_periodically_until() {
     display_message "Waiting for ${ACS_NAME} to start ..."
     for TRY in $(seq 1 140); do
 	echo "${TRY}"
-	ACS_STARTED_UP=$(docker-compose logs | grep "${STRING_TO_CHECK}") || true
+	ACS_STARTED_UP=$(docker logs tr069_${ACS_NAME} | grep "${STRING_TO_CHECK}") || true
 	if [ ! -z "${ACS_STARTED_UP}" ]; then
 	    echo "${ACS_NAME} is up and running!"
 	    break;
@@ -328,10 +329,13 @@ check_log_periodically_until() {
 }
 
 
-# continue only after the openacs has been started by jboss, and genieacs is up and running
-wait_for_acs_to_start() {
-    check_log_periodically_until openacs "Started in"
+wait_for_container_to_start() {
+    # continue only after the openacs has been started by jboss, and genieacs is up and running
+    check_log_periodically_until acs "Started in"
+    # continue only after genieacs is up and running
     check_log_periodically_until genieacs "spawned: 'genieacs-ui'"
+    # continue only after elasicsearch is up and running
+    check_log_periodically_until elastic "elasticsearch running"
 }
 
 # errors were seen due to an old ubuntu:18.04 image ... pull it to be up to date
@@ -384,6 +388,20 @@ get_interface_to_sniff() {
 	fi
     fi
     echo "${INTERFACE_TO_SNIFF}"
+}
+
+NETWORK_ITEM_GLUE="-"
+list_networks() {
+    NETWORK_LIST=$(docker network ls | grep tr069_ | awk -v _=${NETWORK_ITEM_GLUE} '{ print $1_$2 }')
+    for NETWORK_ITEM in ${NETWORK_LIST}; do
+	NETWORK=$(echo ${NETWORK_ITEM} | awk -F"${NETWORK_ITEM_GLUE}" '{ print $1 }')
+	NETWORK_NAME=$(echo ${NETWORK_ITEM} | awk -F"${NETWORK_ITEM_GLUE}" '{ print $2 }')
+	INTERFACE_NAME=$(docker network inspect --format '{{ .Options.parent }}' "${NETWORK}")
+	if [ "${INTERFACE_NAME}" = "<no value>" ]; then
+	    INTERFACE_NAME="dm-${NETWORK}"
+	fi
+	echo "${NETWORK_NAME}\t${NETWORK}\t${INTERFACE_NAME}"
+    done
 }
 
 # to sniff the traffic in the correct docker network
@@ -578,7 +596,6 @@ case ${COMMAND} in
 		    fi
 		done
 	    fi
-
 	    docker-compose up -d
 
 	    if [ ! -z "${TR069_NETWORKS_TO_SNIFF}" ]; then
@@ -587,8 +604,8 @@ case ${COMMAND} in
 		done
 	    fi
 	    add_helper_interface
+	    wait_for_container_to_start
 	    populate_hosts
-	    wait_for_acs_to_start
 	    if [ "${PATCH_MY_HOSTS}" = "YES" ]; then
 		patch_hosts
 	    fi
@@ -658,11 +675,11 @@ case ${COMMAND} in
 	    sh "${0}" down
 	    sh "${0}" up
 	    display_message "Please check the detected profile changes and allow them all  ..."
-	    aa-logprof -d /etc/apparmor.d
+	    aa-logprof -d /etc/apparmor.d || echo "Error at checking profiles ..."
 	    display_message "Enforcing all AppArmor profiles again ..."
-	    aa-enforce /etc/apparmor.d/*
+	    aa-enforce /etc/apparmor.d/* || echo "Error at enforcing profiles ..."
 	    display_message "Restarting AppArmor ..."
-	    systemctl reload apparmor.service
+	    systemctl reload apparmor.service || echo "Error ar retstarting AppArmor ..."
 	else
 	    display_message "You did not install \"aa-genprof\" to generate an apparmor profile for this simulation or \"aa-notify\" to check installed profiled. Remove /tmp/no_aa_tools_wished to choose again ..."
 	fi
@@ -674,6 +691,9 @@ case ${COMMAND} in
 	;;
     test)
 	test_networking
+	;;
+    list)
+	list_networks
 	;;
     *)
 	display_help_to /dev/stderr
