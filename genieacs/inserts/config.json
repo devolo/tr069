@@ -13,5 +13,6 @@
     "UI_SSL": false,
     "UI_INTERFACE": "0.0.0.0",
     "UI_PORT": 7070,
-    "UI_JWT_SECRET": "dummy"
+    "UI_JWT_SECRET": "dummy",
+    "UDP_CONNECTION_REQUEST_PORT": "3478"
   }
