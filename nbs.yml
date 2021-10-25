@@ -1,0 +1,168 @@
+version: '3.3'
+
+
+services:
+################################################################################
+# helper images
+################################################################################
+  base:
+    image: ${NBS_PROJECT}_base:${VERSION:-latest}
+    environment:
+    - DHCLIENT_TIMEOUT=300
+    build:
+        context: ./base
+        args:
+            - VERSION=${VERSION:-latest}
+
+   ###### connected in the virtual world to a gateway ########################
+  dhcp_client:
+    image: ${NBS_PROJECT}_dhcp_client:${VERSION:-latest}
+    build:
+        context: ./dhcp_client
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    depends_on:
+      - base
+
+   ###### connecting networks ################################################
+  gateway:
+    environment:
+    - UPSTREAM_NETWORK_NAME=internet
+    image: ${NBS_PROJECT}_gateway:${VERSION:-latest}
+    build:
+        context: ./gateway
+        args:
+            - VERSION=${VERSION:-latest}
+    hostname: private
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    depends_on:
+      - base
+      - dhcp_client
+    networks:
+      private1:
+      private2:
+
+
+################################################################################
+# debugging and testing
+################################################################################
+  rsyslog:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    tty: true
+    container_name: ${NBS_PROJECT}_rsyslog
+    hostname: rsyslog
+    image: ${NBS_PROJECT}_rsyslog:${VERSION:-latest}
+    build:
+        context: ./rsyslog
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    depends_on:
+      - upstream
+    expose:
+      - 514
+      - 514/udp
+    networks:
+      internet:
+
+  probe1:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    - DISPLAY=${DISPLAY}
+    tty: true
+    container_name: ${NBS_PROJECT}_probe1
+    hostname: probe1
+    image: ${NBS_PROJECT}_probe1:${VERSION:-latest}
+    build:
+        context: ./probe
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    depends_on:
+      - home0
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    networks:
+      home0:
+
+#  probe2:
+#    environment:
+#    - KEEP_SERVICE_RUNNING=yes
+#    - DISPLAY=${DISPLAY}
+#    tty: true
+#    container_name: ${NBS_PROJECT}_probe2
+#    hostname: probe2
+#    image: ${NBS_PROJECT}_probe2:${VERSION:-latest}
+#    build: ./probe
+#    privileged: true
+#    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+#    security_opt:
+#      - apparmor:docker-default
+#    depends_on:
+#      - telco0
+#    volumes:
+#      - /tmp/.X11-unix:/tmp/.X11-unix
+#    networks:
+#      telco0:
+#
+#  probe3:
+#    environment:
+#    - KEEP_SERVICE_RUNNING=yes
+#    - DISPLAY=${DISPLAY}
+#    tty: true
+#    container_name: ${NBS_PROJECT}_probe3
+#    hostname: probe3
+#    image: ${NBS_PROJECT}_probe3:${VERSION:-latest}
+#    build: ./probe
+#    privileged: true
+#    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+#    security_opt:
+#      - apparmor:docker-default
+#    depends_on:
+#      - upstream
+#    volumes:
+#      - /tmp/.X11-unix:/tmp/.X11-unix
+#    networks:
+#      internet:
+#
+#  probe4:
+#    environment:
+#    - KEEP_SERVICE_RUNNING=yes
+#    - DISPLAY=${DISPLAY}
+#    tty: true
+#    container_name: ${NBS_PROJECT}_probe4
+#    hostname: probe4
+#    image: ${NBS_PROJECT}_probe4:${VERSION:-latest}
+#    build: ./probe
+#    privileged: true
+#    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+#    security_opt:
+#      - apparmor:docker-default
+#    depends_on:
+#      - upstream
+#    volumes:
+#      - /tmp/.X11-unix:/tmp/.X11-unix
+#    networks:
+#      upstream:
+
+#
+################################################################################
+#
+
+networks:
+  internet:
+    driver: macvlan
+  private1:
+    driver: macvlan
+  private2:
+    driver: macvlan

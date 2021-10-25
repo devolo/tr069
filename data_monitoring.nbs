@@ -1,0 +1,59 @@
+version: '3.3'
+
+
+services:
+
+################################################################################
+# real implemented and used services
+################################################################################
+
+  mqttbroker:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    tty: true
+    container_name: ${NBS_PROJECT}_mqttbroker
+    hostname: mqttbroker
+    image: ${NBS_PROJECT}_mqttbroker:${VERSION:-latest}
+    build:
+        context: ./mqttbroker
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    depends_on:
+      - upstream
+    expose:
+      # Opens mqttbroker ports on the container
+      - 1883
+    networks:
+      internet:
+
+  elastic:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    tty: true
+    container_name: ${NBS_PROJECT}_elastic
+    hostname: elastic
+    image: ${NBS_PROJECT}_elastic:${VERSION:-latest}
+    build:
+        context: ./elastic
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    depends_on:
+      - upstream
+    expose:
+      # Opens elastic ports on the container
+      - 9200
+    networks:
+      internet:
+
+# continue only after elastic is up
+#nbs wait;elastic;elasticsearch running
+#nbs resolve;mqttbroker
+#nbs resolve;elastic
