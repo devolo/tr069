@@ -669,6 +669,10 @@ case ${COMMAND} in
 	# unfortunately docker is not made for network simulation; really throw away all networks ...
 	sudo service docker stop
 	sudo rm /var/lib/docker/network/files/local-kv.db
+	if [ -f /var/lib/docker/network/files/local-kv.db ]; then
+	    display_message "Sorry, could not remove file \"/var/lib/docker/network/files/local-kv.db\" ... Aborting!"
+	    exit 6
+	fi
 	sudo service docker start
 	;;
     purge)
