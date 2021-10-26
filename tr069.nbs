@@ -2,48 +2,6 @@ version: '3.3'
 
 
 services:
-################################################################################
-# helper images
-################################################################################
-  base:
-    image: tr069_base:${VERSION:-latest}
-    environment:
-    - DHCLIENT_TIMEOUT=300
-    build:
-        context: ./base
-        args:
-            - VERSION=${VERSION:-latest}
-
-   ###### connected in the virtual world to a gateway ########################
-  dhcp_client:
-    image: tr069_dhcp_client:${VERSION:-latest}
-    build:
-        context: ./dhcp_client
-        args:
-            - VERSION=${VERSION:-latest}
-    privileged: true
-    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
-    depends_on:
-      - base
-
-   ###### connecting networks ################################################
-  gateway:
-    environment:
-    - UPSTREAM_NETWORK_NAME=internet
-    image: tr069_gateway:${VERSION:-latest}
-    build:
-        context: ./gateway
-        args:
-            - VERSION=${VERSION:-latest}
-    hostname: private
-    privileged: true
-    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
-    depends_on:
-      - base
-      - dhcp_client
-    networks:
-      private1:
-      private2:
 
 ################################################################################
 # real implemented and used services
@@ -52,9 +10,9 @@ services:
     environment:
     - KEEP_SERVICE_RUNNING=yes
     tty: true
-    container_name: tr069_genieacs
+    container_name: ${NBS_PROJECT}_genieacs
     hostname: genieacs
-    image: tr069_genieacs:${VERSION:-latest}
+    image: ${NBS_PROJECT}_genieacs:${VERSION:-latest}
     build:
         context: ./genieacs
         args:
@@ -80,9 +38,9 @@ services:
       telco0:
 
   acsdb:
-    container_name: tr069_acsdb
+    container_name: ${NBS_PROJECT}_acsdb
     hostname: acsdb
-    image: tr069_acsdb:${VERSION:-latest}
+    image: ${NBS_PROJECT}_acsdb:${VERSION:-latest}
     build:
         context: ./mysql
         args:
@@ -110,59 +68,13 @@ services:
     depends_on:
       - telco0
 
-  mqttbroker:
-    environment:
-    - KEEP_SERVICE_RUNNING=yes
-    tty: true
-    container_name: tr069_mqttbroker
-    hostname: mqttbroker
-    image: tr069_mqttbroker:${VERSION:-latest}
-    build:
-        context: ./mqttbroker
-        args:
-            - VERSION=${VERSION:-latest}
-    privileged: true
-    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
-    security_opt:
-      - apparmor:docker-default
-    depends_on:
-      - upstream
-    expose:
-      # Opens mqttbroker ports on the container
-      - 1883
-    networks:
-      internet:
-
-  elastic:
-    environment:
-    - KEEP_SERVICE_RUNNING=yes
-    tty: true
-    container_name: tr069_elastic
-    hostname: elastic
-    image: tr069_elastic:${VERSION:-latest}
-    build:
-        context: ./elastic
-        args:
-            - VERSION=${VERSION:-latest}
-    privileged: true
-    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
-    security_opt:
-      - apparmor:docker-default
-    depends_on:
-      - upstream
-    expose:
-      # Opens elastic ports on the container
-      - 9200
-    networks:
-      internet:
-
   acs:
     environment:
     - KEEP_SERVICE_RUNNING=yes
     tty: true
-    container_name: tr069_acs
+    container_name: ${NBS_PROJECT}_acs
     hostname: acs
-    image: tr069_acs:${VERSION:-latest}
+    image: ${NBS_PROJECT}_acs:${VERSION:-latest}
     build:
         context: ./openacs
         args:
@@ -187,9 +99,9 @@ services:
     environment:
     - KEEP_SERVICE_RUNNING=yes
     tty: true
-    container_name: tr069_stun
+    container_name: ${NBS_PROJECT}_stun
     hostname: stun
-    image: tr069_stun:${VERSION:-latest}
+    image: ${NBS_PROJECT}_stun:${VERSION:-latest}
     build:
         context: ./stun
         args:
@@ -211,9 +123,9 @@ services:
     environment:
     - KEEP_SERVICE_RUNNING=yes
     tty: true
-    container_name: tr069_xmpp
+    container_name: ${NBS_PROJECT}_xmpp
     hostname: xmpp
-    image: tr069_xmpp:${VERSION:-latest}
+    image: ${NBS_PROJECT}_xmpp:${VERSION:-latest}
     build:
         context: ./xmpp
         args:
@@ -239,9 +151,9 @@ services:
     environment:
     - KEEP_SERVICE_RUNNING=yes
     tty: true
-    container_name: tr069_web
+    container_name: ${NBS_PROJECT}_web
     hostname: web
-    image: tr069_web:${VERSION:-latest}
+    image: ${NBS_PROJECT}_web:${VERSION:-latest}
     build:
         context: ./apache
         args:
@@ -264,9 +176,9 @@ services:
     environment:
     - KEEP_SERVICE_RUNNING=yes
     tty: true
-    container_name: tr069_nginx
+    container_name: ${NBS_PROJECT}_nginx
     hostname: nginx
-    image: tr069_nginx:${VERSION:-latest}
+    image: ${NBS_PROJECT}_nginx:${VERSION:-latest}
     build:
         context: ./nginx
         args:
@@ -288,115 +200,6 @@ services:
       - 443
     networks:
       telco0:
-
-################################################################################
-# debugging and testing
-################################################################################
-  rsyslog:
-    environment:
-    - KEEP_SERVICE_RUNNING=yes
-    tty: true
-    container_name: tr069_rsyslog
-    hostname: rsyslog
-    image: tr069_rsyslog:${VERSION:-latest}
-    build:
-        context: ./rsyslog
-        args:
-            - VERSION=${VERSION:-latest}
-    privileged: true
-    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
-    security_opt:
-      - apparmor:docker-default
-    depends_on:
-      - upstream
-    expose:
-      - 514
-      - 514/udp
-    networks:
-      internet:
-
-  probe1:
-    environment:
-    - KEEP_SERVICE_RUNNING=yes
-    - DISPLAY=${DISPLAY}
-    tty: true
-    container_name: tr069_probe1
-    hostname: probe1
-    image: tr069_probe1:${VERSION:-latest}
-    build:
-        context: ./probe
-        args:
-            - VERSION=${VERSION:-latest}
-    privileged: true
-    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
-    security_opt:
-      - apparmor:docker-default
-    depends_on:
-      - home0
-    volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix
-    networks:
-      home0:
-
-#  probe2:
-#    environment:
-#    - KEEP_SERVICE_RUNNING=yes
-#    - DISPLAY=${DISPLAY}
-#    tty: true
-#    container_name: tr069_probe2
-#    hostname: probe2
-#    image: tr069_probe2:${VERSION:-latest}
-#    build: ./probe
-#    privileged: true
-#    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
-#    security_opt:
-#      - apparmor:docker-default
-#    depends_on:
-#      - telco0
-#    volumes:
-#      - /tmp/.X11-unix:/tmp/.X11-unix
-#    networks:
-#      telco0:
-#
-#  probe3:
-#    environment:
-#    - KEEP_SERVICE_RUNNING=yes
-#    - DISPLAY=${DISPLAY}
-#    tty: true
-#    container_name: tr069_probe3
-#    hostname: probe3
-#    image: tr069_probe3:${VERSION:-latest}
-#    build: ./probe
-#    privileged: true
-#    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
-#    security_opt:
-#      - apparmor:docker-default
-#    depends_on:
-#      - upstream
-#    volumes:
-#      - /tmp/.X11-unix:/tmp/.X11-unix
-#    networks:
-#      internet:
-#
-#  probe4:
-#    environment:
-#    - KEEP_SERVICE_RUNNING=yes
-#    - DISPLAY=${DISPLAY}
-#    tty: true
-#    container_name: tr069_probe4
-#    hostname: probe4
-#    image: tr069_probe4:${VERSION:-latest}
-#    build: ./probe
-#    privileged: true
-#    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
-#    security_opt:
-#      - apparmor:docker-default
-#    depends_on:
-#      - upstream
-#    volumes:
-#      - /tmp/.X11-unix:/tmp/.X11-unix
-#    networks:
-#      upstream:
 
 ################################################################################
 # gateways
@@ -425,9 +228,9 @@ services:
     - WAIT_INTERVAL_MULTIPLIER=${WAIT_INTERVAL_MULTIPLIER:-1}
 
     tty: true
-    container_name: tr069_home0
+    container_name: ${NBS_PROJECT}_home0
     hostname: home0
-    image: tr069_home0:${VERSION:-latest}
+    image: ${NBS_PROJECT}_home0:${VERSION:-latest}
     build:
         context: ./home0
         args:
@@ -459,9 +262,9 @@ services:
     - DEFAULT_LEASE_TIME=${TELCO0_DEFAULT_LEASE_TIME:-3600}
     - DOMAIN_TO_SERVE=telco0.intern
     tty: true
-    container_name: tr069_telco0
+    container_name: ${NBS_PROJECT}_telco0
     hostname: telco0
-    image: tr069_telco0:${VERSION:-latest}
+    image: ${NBS_PROJECT}_telco0:${VERSION:-latest}
     build:
         context: ./telco0
         args:
@@ -494,9 +297,9 @@ services:
     - DOMAIN_TO_SERVE=public
     - ADDITIONAL_NAMESERVER=${UPSTREAM_ADDITIONAL_NAMESERVER}
     tty: true
-    container_name: tr069_upstream
+    container_name: ${NBS_PROJECT}_upstream
     hostname: upstream
-    image: tr069_upstream:${VERSION:-latest}
+    image: ${NBS_PROJECT}_upstream:${VERSION:-latest}
     build:
         context: ./upstream
         args:
@@ -536,13 +339,17 @@ networks:
     driver: macvlan
     driver_opts:
       parent: ${MY_DUT_INTERFACE}
-  internet:
-    driver: macvlan
-  private1:
-    driver: macvlan
-  private2:
-    driver: macvlan
   upstream:
     driver: macvlan
     driver_opts:
       parent: ${MY_UPSTREAM_INTERFACE}
+
+# continue only after the openacs has been started by jboss, and genieacs is up and running
+#nbs wait;acs;Started in
+#nbs wait;genieacs;spawned: 'genieacs-ui'
+#nbs resolve;telco0
+#nbs resolve;home0
+#nbs resolve;upstream
+#nbs url;openACS;telco0.public:9000/openacs
+#nbs url;apache;telco0.public
+#nbs url;GenieACS;telco0.public:7557/devices

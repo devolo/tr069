@@ -1,0 +1,54 @@
+version: '3.3'
+
+
+services:
+
+################################################################################
+# gateways
+################################################################################
+
+  home0:
+    environment:
+    - KEEP_SERVICE_RUNNING=yes
+    - UPSTREAM_NETWORK_NAME=internet
+    # allowed range is 1-250 to generate addresses in 192.168.IP_ADDRES_BYTE_TO_SERVE.
+    - IP_ADDRES_BYTE_TO_SERVE=${HOME0_IP_ADDRES_BYTE:-1}
+    - IP_ADDRES_BYTE_RANGE_START=${HOME0_IP_ADDRES_START:-101}
+    - IP_ADDRES_BYTE_RANGE_END=${HOME0_IP_ADDRES_END:-110}
+    - OWN_IP_ADDRES_BYTE=${HOME0_OWN_IP_ADDRES_BYTE:-100}
+    - DEFAULT_LEASE_TIME=${HOME0_DEFAULT_LEASE_TIME:-86400}
+    - DOMAIN_TO_SERVE=home0.intern
+    - WAIT_INTERVAL=${WAIT_INTERVAL:-86400}
+    - WAIT_INTERVAL_MULTIPLIER=${WAIT_INTERVAL_MULTIPLIER:-1}
+    - DHCLIENT_TIMEOUT=${DHCLIENT_TIMEOUT:-5}
+
+    tty: true
+    container_name: ${NBS_PROJECT}_home0
+    hostname: home0
+    image: ${NBS_PROJECT}_home0:${VERSION:-latest}
+    build:
+        context: ./home0
+        args:
+            - VERSION=${VERSION:-latest}
+    privileged: true
+    cap_add: [ 'NET_ADMIN', 'NET_RAW' ]
+    security_opt:
+      - apparmor:docker-default
+    expose:
+      - 53
+      - 53/udp
+      - 67/udp
+      - 68/udp
+    networks:
+      internet:
+      home0:
+
+#
+################################################################################
+#
+
+networks:
+  home0:
+    driver: macvlan
+    driver_opts:
+      parent: ${MY_DUT_INTERFACE}

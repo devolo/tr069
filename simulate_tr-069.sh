@@ -5,7 +5,7 @@ set -e
 #set -x
 
 DEFAULT_IMAGE_VERSION="1.3.7"
-SCRIPT_VERISON="1.3.8"
+SCRIPT_VERISON="1.3.9"
 
 ################################################################################
 #
@@ -50,12 +50,14 @@ fi
 # environment variables to follow
 #
 ################################################################################
+NBS_PROJECT=${NBS_PROJECT:-tr069}
+NBS_ADDON=${NBS_ADDON:-""}
 VERSION=${VERSION:-$DEFAULT_IMAGE_VERSION}
 MYSQL_PORT=${MYSQL_PORT:-3306}
 MYHTTP_PORT=${MYHTTP_PORT:-8080}
 ADDITIONAL_NAMESERVER=${ADDITIONAL_NAMESERVER:-\"\"}
 MY_DUT_INTERFACE=${MY_DUT_INTERFACE:-enp5s0.66}
-MY_HELPER_INTERFACE=${MY_HELPER_INTERFACE:-sim-tr069-net}
+MY_HELPER_INTERFACE=${MY_HELPER_INTERFACE:-sim-${NBS_PROJECT}-net}
 MY_HELPER_INTERFACE_IP=${MY_HELPER_INTERFACE_IP:-"DHCP"}
 MY_UPSTREAM_INTERFACE=${MY_UPSTREAM_INTERFACE:-enp5s0.25}
 MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW=${MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW:-"NO"}
@@ -86,19 +88,20 @@ export WAIT_INTERVAL
 export WAIT_INTERVAL_MULTIPLIER
 export USE_OPTION_125_MODE
 export USE_OPTION_43_MODE
+export NBS_PROJECT
 
 COMMAND=${1:-"help"}
-TR069_NETWORKS_TO_SNIFF=${TR069_NETWORKS_TO_SNIFF:-""}
+NBS_NETWORKS_TO_SNIFF=${NBS_NETWORKS_TO_SNIFF:-""}
 
 RESOLV_FILE=/etc/resolv.conf
 HOSTS_FILE=/etc/hosts
 
 WIRESHARK_HOSTS_FILE=~/.config/wireshark/hosts
 
-START_PATTERN="####TR069START####"
-END_PATTERN="###TR069END###"
+START_PATTERN="####${NBS_PROJECT}START####"
+END_PATTERN="###${NBS_PROJECT}END###"
 
-HOSTS_TO_TEST="telco0 home0 upstream mqttbroker elastic"
+HOSTS_TO_TEST=""
 
 ################################################################################
 #
@@ -121,9 +124,9 @@ Usage: sudo -E sh simulate_tr-069.sh [build|up|down|remove|purge_network|purge|t
     * build         : pulls Ubuntu 18.04 and 12.04, builds all images, tags them and executes 'up'
     * up            : starts all containers, tags them if not yet done, adds the local helper interface for HOST connection, waits for all ACSes to start and executes some basic networking tests
     * down          : removes the helper interface for HOST connection and stops all containers
-    * remove        : executes 'down' and removes all tr069 images of current version and latest
+    * remove        : executes 'down' and removes all ${NBS_PROJECT} images of current version and latest
     * purge_network : stopping docker daemon, removing all networks and restarting the daemon again; use with care
-    * purge         : executes 'down' and removes all tr069 images
+    * purge         : executes 'down' and removes all ${NBS_PROJECT} images
     * test_setup    : executes 'remove', 'build' and 'up'
     * wireshark     : starts wireshark to sniff the given network; if no network name given, displays available network names
     * list          : list network names
@@ -188,7 +191,7 @@ add_helper_interface(){
 	    sudo ip addr add "${MY_HELPER_INTERFACE_IP}" dev "${MY_HELPER_INTERFACE}" || ( display_message "IP setup failed, think about using \"export MY_HELPER_INTERFACE_IP=192.168.${HOME0_IP_ADDRES_BYTE}.250/24\" ..." && exit 1)
 	    export PATCH_MY_RESOLVE_CONF="YES"
 	fi
-	NEW_GW_NAMESERVER=$(docker exec tr069_home0 ip addr show | grep "192.168.${HOME0_IP_ADDRES_BYTE}"  | awk -F/ '{ print $1 }' | awk '{ print $2 }')
+	NEW_GW_NAMESERVER=$(docker exec ${NBS_PROJECT}_home0 ip addr show | grep "192.168.${HOME0_IP_ADDRES_BYTE}"  | awk -F/ '{ print $1 }' | awk '{ print $2 }')
 	if [ "${MY_UPSTREAM_INTERFACE_ACCEPTS_DEFAULT_GW}" = "NO" ]; then
 	    sudo sh poll_default_gateway.sh "${NEW_GW_NAMESERVER}" &
 	fi
@@ -207,7 +210,7 @@ add_helper_interface(){
 	    sudo mv /tmp/myresolv.conf "${RESOLV_FILE}"
 	fi
 	if [ "${MY_UPSTREAM_NETWORK_SHALL_BE_REACHABLE_THROUGH_THE_SIMULATED_NETWORK}" != "NO" ]; then
-	    UPSTREAM_NETWORK=$(docker exec tr069_upstream ip route show | grep src | awk '{ print $1 }')
+	    UPSTREAM_NETWORK=$(docker exec ${NBS_PROJECT}_upstream ip route show | grep src | awk '{ print $1 }')
 	    sudo ip route add "${UPSTREAM_NETWORK}" via "${NEW_GW_NAMESERVER}"
 	fi
 	# make SSDP to be routed into the local TR-069 network, so that the home0 gateway will be seen for TR-064
@@ -229,7 +232,7 @@ remove_helper_interface(){
 # this is not atomic and may fail if some changes to WIRESHARK_HOSTS_FILE are done by the
 # system during populate_hosts ...
 populate_hosts() {
-    CONTAINERS=$(docker ps --format '{{.Names}}'| grep tr069_ )
+    CONTAINERS=$(docker ps --format '{{.Names}}'| grep ${NBS_PROJECT}_ )
 
     mkdir -p "$(dirname ${WIRESHARK_HOSTS_FILE})"
     echo ${START_PATTERN}>>${WIRESHARK_HOSTS_FILE}
@@ -241,11 +244,23 @@ populate_hosts() {
     echo ${END_PATTERN}>>${WIRESHARK_HOSTS_FILE}
 }
 
+generate_list_of_hosts_to_test() {
+    HOSTS_TO_TEST="$(
+    for FILE in ${NBS_PROJECT} ${NBS_ADDON}; do
+	cat ${FILE}.nbs | grep "#nbs resolve" | while read COMMAND
+	do
+	    HOSTS_TO_TEST="$(echo ${COMMAND} | awk -F';' '{ print $2 }')"
+	    echo "${HOSTS_TO_TEST}"
+	done
+    done)"
+}
+
 # upstream ist the source for public IP addresses
 patch_hosts() {
+    generate_list_of_hosts_to_test
     echo ${START_PATTERN}>>${HOSTS_FILE}
     for HOST in ${HOSTS_TO_TEST}; do
-	HOST_OUTPUT=$(docker exec tr069_upstream host ${HOST})
+	HOST_OUTPUT=$(docker exec ${NBS_PROJECT}_upstream host ${HOST})
 	IP=$(echo ${HOST_OUTPUT} | awk '{ print $4 }')
 	FQDN=$(echo ${HOST_OUTPUT} | awk '{ print $1 }')
 	sudo echo ${IP} ${FQDN} ${HOST} >> ${HOSTS_FILE}
@@ -309,33 +324,38 @@ check_tools() {
 
 # poll the log and wait for the magic string ...
 check_log_periodically_until() {
-    ACS_NAME="${1}"
+    SERVICE_NAME="${1}"
     STRING_TO_CHECK="${2}"
-    display_message "Waiting for ${ACS_NAME} to start ..."
+    display_message "Waiting for ${SERVICE_NAME} to start ..."
     for TRY in $(seq 1 140); do
 	echo "${TRY}"
-	ACS_STARTED_UP=$(docker logs tr069_${ACS_NAME} | grep "${STRING_TO_CHECK}") || true
+	ACS_STARTED_UP=$(docker logs ${NBS_PROJECT}_${SERVICE_NAME} | grep "${STRING_TO_CHECK}") || true
 	if [ ! -z "${ACS_STARTED_UP}" ]; then
-	    echo "${ACS_NAME} is up and running!"
+	    echo "${SERVICE_NAME} is up and running!"
 	    break;
 	else
 	    sleep 1
 	fi
     done
     if [ -z "${ACS_STARTED_UP}" ]; then
-	display_message "Sorry, no ${ACS_NAME} ..."
+	display_message "Sorry, no ${SERVICE_NAME} ..."
 	exit 3
     fi
 }
 
+execute_nbs_command() {
+    for FILE in ${NBS_PROJECT} ${NBS_ADDON}; do
+	cat ${FILE}.nbs | grep "#nbs ${1}" | while read COMMAND
+	do
+	    ARG1="$(echo ${COMMAND} | awk -F';' '{ print $2 }')"
+	    ARG2="$(echo ${COMMAND} | awk -F';' '{ print $3 }')"
+	    ${2} "${ARG1}" "${ARG2}"
+	done
+    done
+}
 
 wait_for_container_to_start() {
-    # continue only after the openacs has been started by jboss, and genieacs is up and running
-    check_log_periodically_until acs "Started in"
-    # continue only after genieacs is up and running
-    check_log_periodically_until genieacs "spawned: 'genieacs-ui'"
-    # continue only after elasicsearch is up and running
-    check_log_periodically_until elastic "elasticsearch running"
+    execute_nbs_command "wait" check_log_periodically_until
 }
 
 # errors were seen due to an old ubuntu:18.04 image ... pull it to be up to date
@@ -346,19 +366,19 @@ docker_pull() {
 }
 
 test_download_from_url() {
-    display_message "${1}"
+    display_message "Testing download of URL ${2} from ${1} ..."
     wget -O "out.html" "${2}" || if [ "$?" != "3" ]; then exit 1; else echo "File I/O error ignored..."; fi
     rm "out.html"
 }
 
+ping_once() {
+    display_message "Pinging ${1} ..."
+    ping -c 1 ${1}.public
+}
 test_networking() {
-    display_message "Testing ping ..."
-    for HOST in ${HOSTS_TO_TEST}; do
-	ping -c 1 ${HOST}.public
-    done
-    test_download_from_url "Testing access to webui of telco0's openACS ..." telco0.public:9000/openacs
-    test_download_from_url "Testing access to webui of telco0's apache ..." telco0.public
-    test_download_from_url "Testing access to webui of telco0's GenieACS ..." telco0.public:7557/devices
+    execute_nbs_command "resolve" ping_once
+    execute_nbs_command "url" test_download_from_url
+
     NMAP_AVAILABLE=$(which nmap) || true
     if [ ! -z "${NMAP_AVAILABLE}" ]; then
 	display_message "Testing STUN  port of telco0 ..."
@@ -392,7 +412,7 @@ get_interface_to_sniff() {
 
 NETWORK_ITEM_GLUE="-"
 list_networks() {
-    NETWORK_LIST=$(docker network ls | grep tr069_ | awk -v _=${NETWORK_ITEM_GLUE} '{ print $1_$2 }')
+    NETWORK_LIST=$(docker network ls | grep ${NBS_PROJECT}_ | awk -v _=${NETWORK_ITEM_GLUE} '{ print $1_$2 }')
     for NETWORK_ITEM in ${NETWORK_LIST}; do
 	NETWORK=$(echo ${NETWORK_ITEM} | awk -F"${NETWORK_ITEM_GLUE}" '{ print $1 }')
 	NETWORK_NAME=$(echo ${NETWORK_ITEM} | awk -F"${NETWORK_ITEM_GLUE}" '{ print $2 }')
@@ -463,8 +483,10 @@ check_apparmor_tools () {
 }
 
 display_settings () {
-    display_message "Settings of v${SCRIPT_VERISON} (default image v${DEFAULT_IMAGE_VERSION}):"
+    display_message "NBS settings of v${SCRIPT_VERISON} (default image v${DEFAULT_IMAGE_VERSION}):"
     echo " VERSION=${VERSION} ; image version to use"
+    echo " NBS_PROJECT=${NBS_PROJECT} ; project to use"
+    echo " NBS_ADDON=${NBS_ADDON} ; addons to use"
     echo " ADDITIONAL_NAMESERVER=${ADDITIONAL_NAMESERVER}"
     echo " MY_DUT_INTERFACE=${MY_DUT_INTERFACE}"
     echo " MY_HELPER_INTERFACE=${MY_HELPER_INTERFACE}"
@@ -475,7 +497,7 @@ display_settings () {
     echo " PATCH_MY_RESOLVE_CONF=${PATCH_MY_RESOLVE_CONF}"
     echo " PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND=${PATCH_MY_DHCP_SERVER_FOR_OPTION_125_WORKAROUND}"
     echo " PATCH_MY_DHCP_SERVER_FOR_OPTION_43_WORKAROUND=${PATCH_MY_DHCP_SERVER_FOR_OPTION_43_WORKAROUND}"
-    echo " TR069_NETWORKS_TO_SNIFF=${TR069_NETWORKS_TO_SNIFF:-none}"
+    echo " NBS_NETWORKS_TO_SNIFF=${NBS_NETWORKS_TO_SNIFF:-none}"
     echo " PATCH_MY_HOSTS=${PATCH_MY_HOSTS}"
     echo " ACS_URL_TO_USE_OPTION125=${ACS_URL_TO_USE_OPTION125}"
     echo " ACS_URL_TO_USE_OPTION43=${ACS_URL_TO_USE_OPTION43}"
@@ -488,9 +510,24 @@ display_settings () {
 
 remove_docker_images() {
     IMAGE_VERSION=${1:-latest}
-    DOCKER_IMAGES_TO_REMOVE=$(docker image ls | grep tr069_ | grep -F ${IMAGE_VERSION} | awk '{ print $3 }')
+    DOCKER_IMAGES_TO_REMOVE=$(docker image ls | grep ${NBS_PROJECT}_ | grep -F ${IMAGE_VERSION} | awk '{ print $3 }') || true
     if [ "${DOCKER_IMAGES_TO_REMOVE}" != "" ]; then
 	echo "${DOCKER_IMAGES_TO_REMOVE}" | xargs docker rmi -f
+    fi
+}
+
+tag_images_latest() {
+    if [ "${1}" != "" ]; then
+	for FILE in ${NBS_PROJECT} ${NBS_ADDON}; do
+	    FILES_TO_GREP="${FILES_TO_GREP} ${FILE}.nbs"
+	done
+	IMAGES=$(grep 'image: ' nbs.yml ${FILES_TO_GREP} | grep -v "#" | cut -d':' -f 3)
+	for IMAGE in $IMAGES
+	do
+	    IMAGE=$(eval "echo ${IMAGE}")
+	    docker tag "${IMAGE}":"${1}" "${IMAGE}":latest
+	done
+	display_message "${NBS_PROJECT} simulation v${1} tagged as latest!"
     fi
 }
 
@@ -501,26 +538,15 @@ docker_simulation_cleanup () {
 	echo "${DOCKER_IMAGES_TO_REMOVE}" | xargs docker rmi -f
     fi
 
-    LATEST_VERSION=$(docker image ls | grep tr069_ | awk '{ if($2 != "latest") {print $2} }' | sort -rV  | head -n 1)
+    LATEST_VERSION=$(docker image ls | grep ${NBS_PROJECT}_ | awk '{ if($2 != "latest") {print $2} }' | sort -rV  | head -n 1)
     remove_docker_images ${VERSION}
 
     # Remove latest only if latest version = ${VERSION}
     if [ -n "${LATEST_VERSION}" ] && [ "${LATEST_VERSION}" = "${VERSION}" ]; then
 	remove_docker_images latest
 	# Tag the new latest version as latest
-	LATEST_VERSION=$(docker image ls | grep tr069_ | awk '{ if($2 != "latest") {print $2} }' | sort -rV  | head -n 1)
+	LATEST_VERSION=$(docker image ls | grep ${NBS_PROJECT}_ | awk '{ if($2 != "latest") {print $2} }' | sort -rV  | head -n 1)
 	tag_images_latest "${LATEST_VERSION}"
-    fi
-}
-
-tag_images_latest() {
-    if [ "${1}" != "" ]; then
-	IMAGES=$(grep 'image: ' docker-compose.yml | grep -v "#" | cut -d':' -f 2)
-	for IMAGE in $IMAGES
-	do
-	    docker tag "${IMAGE}":"${1}" "${IMAGE}":latest
-	done
-	display_message "TR-069 simulation v${1} tagged as latest!"
     fi
 }
 
@@ -529,6 +555,10 @@ tag_images_latest() {
 # MAINLINE
 #
 ################################################################################
+
+for FILE in ${NBS_PROJECT} ${NBS_ADDON}; do
+    DOCKER_COMPOSE_FILES="${DOCKER_COMPOSE_FILES} -f ${FILE}.nbs"
+done
 
 display_settings
 
@@ -549,12 +579,12 @@ case ${COMMAND} in
             exit 1
         fi
         docker_pull
-        docker-compose build --no-cache
+        docker-compose -p ${NBS_PROJECT} -f nbs.yml ${DOCKER_COMPOSE_FILES} build --no-cache
 
         # Check if DEFAULT_IMAGE_VERSION is greater than the latest version found on the machine.
         # If so, we need to tag DEFAULT_IMAGE_VERSION as latest and remove the previous image tagged as latest.
-        LATEST_VERSION=$(docker image ls | grep tr069_ | awk '{ if($2 != "latest") {print $2} }' | sort -rV  | head -n 1)
-        ALREADY_TAGGED=$(docker image ls | grep tr069_ | grep -F latest | awk '{ print $2 }' | head -n1)
+        LATEST_VERSION=$(docker image ls | grep ${NBS_PROJECT}_ | awk '{ if($2 != "latest") {print $2} }' | sort -rV  | head -n 1)
+        ALREADY_TAGGED=$(docker image ls | grep ${NBS_PROJECT}_ | grep -F latest | awk '{ print $2 }' | head -n1)
 
         if [ -z "${LATEST_VERSION}" ] || [ -z "${ALREADY_TAGGED}" ] || ([ ! "${LATEST_VERSION}" = "${VERSION}" ] && version_gt "${VERSION}" "${LATEST_VERSION}"); then
             echo "${VERSION} is the newest build and will be tagged as 'latest'."
@@ -586,20 +616,24 @@ case ${COMMAND} in
 
 	    # If the user has specified a particular version to start, we need to check if it can be found on the machine.
 	    if [ "${VERSION}" != "${DEFAULT_IMAGE_VERSION}" ]; then
-		IMAGES=$(grep 'image: ' docker-compose.yml | grep -v "#" | cut -d':' -f 2)
+		for FILE in ${NBS_PROJECT} ${NBS_ADDON}; do
+		    FILES_TO_GREP="${FILES_TO_GREP} ${FILE}.nbs"
+		done
+		IMAGES=$(grep 'image: ' nbs.yml ${FILES_TO_GREP} | grep -v "#" | cut -d':' -f 3)
 		for IMAGE in $IMAGES
 		do
-		    VERSION_FOUND=$(docker image ls | grep $IMAGE | grep ${VERSION})
-		    if [ -z "${VERSION}" ]; then
-			echo "Cannot find ${VERSION} on your machine."
+		    IMAGE=$(eval "echo ${IMAGE}")
+		    VERSION_FOUND=$(docker image ls | grep $IMAGE | grep ${VERSION}) || true
+		    if [ -z "${VERSION_FOUND}" ]; then
+			echo "Cannot find ${VERSION} of ${IMAGE} on your machine."
 			exit 1
 		    fi
 		done
 	    fi
-	    docker-compose up -d
+	    docker-compose -p ${NBS_PROJECT} -f nbs.yml ${DOCKER_COMPOSE_FILES} up -d
 
-	    if [ ! -z "${TR069_NETWORKS_TO_SNIFF}" ]; then
-		for NETWORK_TO_SNIFF in ${TR069_NETWORKS_TO_SNIFF}; do
+	    if [ ! -z "${NBS_NETWORKS_TO_SNIFF}" ]; then
+		for NETWORK_TO_SNIFF in ${NBS_NETWORKS_TO_SNIFF}; do
 		    sh "${0}" wireshark "${NETWORK_TO_SNIFF}" &
 		done
 	    fi
@@ -610,12 +644,12 @@ case ${COMMAND} in
 		patch_hosts
 	    fi
 	    sh "${0}" test
-	    display_message "Use \"docker attach --sig-proxy=false tr069_acs\" to watch the openacs log ..."
+	    display_message "Use \"docker attach --sig-proxy=false ${NBS_PROJECT}_acs\" to watch the openacs log ..."
 	fi
 	;;
     down)
-	if [ ! -z "${TR069_NETWORKS_TO_SNIFF}" ]; then
-	    for NETWORK_TO_SNIFF in ${TR069_NETWORKS_TO_SNIFF}; do
+	if [ ! -z "${NBS_NETWORKS_TO_SNIFF}" ]; then
+	    for NETWORK_TO_SNIFF in ${NBS_NETWORKS_TO_SNIFF}; do
 		INTERFACE_TO_SNIFF=$(get_interface_to_sniff "${NETWORK_TO_SNIFF}")
 		PROCESS_TO_KILL=$(pgrep -f "wireshark.*${INTERFACE_TO_SNIFF}")
 		if [ ! -z "${PROCESS_TO_KILL}" ]; then
@@ -625,7 +659,7 @@ case ${COMMAND} in
 	fi
 	remove_hostfs_changes
 	remove_helper_interface
-	docker-compose down
+	docker-compose -p ${NBS_PROJECT} -f nbs.yml ${DOCKER_COMPOSE_FILES} down
 	;;
     purge_network)
 	DOCKER_NETWORKS_TO_REMOVE=$(docker network ls | awk '{ print $2 }')
@@ -635,11 +669,15 @@ case ${COMMAND} in
 	# unfortunately docker is not made for network simulation; really throw away all networks ...
 	sudo service docker stop
 	sudo rm /var/lib/docker/network/files/local-kv.db
+	if [ -f /var/lib/docker/network/files/local-kv.db ]; then
+	    display_message "Sorry, could not remove file \"/var/lib/docker/network/files/local-kv.db\" ... Aborting!"
+	    exit 6
+	fi
 	sudo service docker start
 	;;
     purge)
 	docker_simulation_cleanup
-	DOCKER_IMAGES_TO_REMOVE=$(docker image ls | grep tr069_ | awk '{ print $3 }')
+	DOCKER_IMAGES_TO_REMOVE=$(docker image ls | grep ${NBS_PROJECT}_ | awk '{ print $3 }')
 	if [ "${DOCKER_IMAGES_TO_REMOVE}" != "" ]; then
 	    echo "${DOCKER_IMAGES_TO_REMOVE}" | xargs docker rmi -f
 	fi
@@ -653,7 +691,7 @@ case ${COMMAND} in
 	;;
     wireshark)
 	if [ -z "${2}" ] || [ "${2}" = "help" ]; then
-	    NETWORKS=$(docker network ls | grep tr069 | awk '{ print $2 }' | sed 's/tr069_//g')
+	    NETWORKS=$(docker network ls | grep ${NBS_PROJECT} | awk '{ print $2 }' | sed 's/${NBS_PROJECT}_//g')
 	    display_message "Available networks:"
 	    echo "$NETWORKS"
 	    echo
@@ -665,7 +703,7 @@ case ${COMMAND} in
 	if [ ! -f /tmp/no_aa_tools_wished ]; then
 	    touch /tmp/apparmor_profile_checked
 	    check_apparmor_tools
-	    ALREADY_TAGGED=$(docker image ls | grep tr069_ | grep -F ${VERSION} | awk '{ print $3 }')
+	    ALREADY_TAGGED=$(docker image ls | grep ${NBS_PROJECT}_ | grep -F ${VERSION} | awk '{ print $3 }')
 	    if [ "${ALREADY_TAGGED}" = "" ]; then
 		sh "${0}" build
 	    fi
