@@ -24,12 +24,15 @@ EXPOSE 6000
 
 # Expose the TFTP port
 EXPOSE 69/udp
+# Expose the NTP port
+EXPOSE 123/udp
 
 # Set the working directory to opt to install the content
 WORKDIR /opt
 
 ############# TR-064 ###############
 RUN apt-get update && apt-get -y upgrade &&  apt-get -y install \
+        ntp \
 	python3 \
 	python3-pip \
 	npm; \
