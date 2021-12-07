@@ -61,7 +61,7 @@ class MockSSDPServer:
     def start(self):
         try:
             addr = socket.inet_aton('239.255.255.250')  # multicast address
-            interface = socket.inet_aton(self.ip)
+            interface = socket.inet_aton('127.0.0.1')
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)  # ttl 2
             self.sock.settimeout(self.timeout)
