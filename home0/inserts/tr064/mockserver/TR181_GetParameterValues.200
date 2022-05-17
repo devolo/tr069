@@ -1,0 +1,90 @@
+HTTP/1.1 200 OK
+SERVER: [MOCKED_SERVER]
+CACHE-CONTROL: max-age=1800
+CONTENT-TYPE: text/xml; charset=utf-8
+CONTENT-LENGTH: [CALC_LEN]
+
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:[MOCKED_xmlns]>
+<SOAP-ENV:Body>
+<cwmp:[MOCKED_REQUEST_KEY]Response>
+<ParameterList SOAP-ENC:arrayType="cwmp:ParameterValueStruct[19]">
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.TestParams.SNRGds</Name>
+<Value xsi:type="xsd:unsignedInt">[MOCKED_SNRGds]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.TestParams.SNRGus</Name>
+<Value xsi:type="xsd:unsignedInt">[MOCKED_SNRGus]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.TestParams.SNRpsds</Name>
+<Value xsi:type="xsd:string">[MOCKED_SNRpsds]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.TestParams.SNRpsus</Name>
+<Value xsi:type="xsd:string">[MOCKED_SNRpsus]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.TestParams.SNRMTds</Name>
+<Value xsi:type="xsd:unsignedInt">[MOCKED_SNRMTds]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.TestParams.SNRMTus</Name>
+<Value xsi:type="xsd:unsignedInt">[MOCKED_SNRMTus]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.TestParams.LATNds</Name>
+<Value xsi:type="xsd:string">[MOCKED_LATNds]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.TestParams.LATNus</Name>
+<Value xsi:type="xsd:string">[MOCKED_LATNus]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Channel.1.Stats.Total.XTURFECErrors</Name>
+<Value xsi:type="xsd:unsignedInt">[MOCKED_FECErrors]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Channel.1.Stats.Total.XTURCRCErrors</Name>
+<Value xsi:type="xsd:unsignedInt">[MOCKED_CRCErrors]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.LinkStatus</Name>
+<Value xsi:type="xsd:string">[MOCKED_LinkStatus]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.StandardUsed</Name>
+<Value xsi:type="xsd:string">[MOCKED_StandardUsed]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.CurrentProfile</Name>
+<Value xsi:type="xsd:string">[MOCKED_CurrentProfile]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.DownstreamMaxBitRate</Name>
+<Value xsi:type="xsd:unsignedInt">[MOCKED_DownstreamMaxBitRate]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.UpstreamMaxBitRate</Name>
+<Value xsi:type="xsd:unsignedInt">[MOCKED_UpstreamMaxBitRate]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.DownstreamNoiseMargin</Name>
+<Value xsi:type="xsd:int">[MOCKED_DownstreamNoiseMargin]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Line.1.UpstreamNoiseMargin</Name>
+<Value xsi:type="xsd:int">[MOCKED_UpstreamNoiseMargin]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Channel.1.DownstreamCurrRate</Name>
+<Value xsi:type="xsd:unsignedInt">[MOCKED_DownstreamCurrRate]</Value>
+</ParameterValueStruct>
+<ParameterValueStruct>
+<Name>Device.DSL.Channel.1.UpstreamCurrRate</Name>
+<Value xsi:type="xsd:unsignedInt">[MOCKED_UpstreamCurrRate]</Value>
+</ParameterValueStruct>
+</ParameterList>
+</cwmp:[MOCKED_REQUEST_KEY]Response>
+</SOAP-ENV:Body>
+</SOAP-ENV:Envelope>

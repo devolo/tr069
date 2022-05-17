@@ -1,0 +1,34 @@
+HTTP/1.1 200 OK
+SERVER: [MOCKED_SERVER]
+CACHE-CONTROL: max-age=1800
+CONTENT-TYPE: text/xml; charset=utf-8
+CONTENT-LENGTH: [CALC_LEN]
+
+<?xml version="1.0"?>
+<s:Envelope
+  xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+  s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+  <s:Body>
+    <u:GetSupportedDataModelsResponse xmlns:u="urn:schemas-upnp-org:service:ConfigurationManagement:2">
+      <cms:SupportedDataModels xmlns:cms="urn:schemas-upnp-org:dm:cms">
+        <SubTree>
+          <URI>urn:UPnP:Parent Device:1:ConfigurationManagement:2</URI>
+          <Location>/UPnP/DM/Configuration/</Location>
+          <Description>UPnP Manageable Device common objects for CMS</Description>
+        </SubTree>
+        <SubTree>
+          <URI>urn:broadband-forum-org:tr-181-2-0</URI>
+          <Location>/BBF/</Location>
+          <URL>https://cwmp-data-models.broadband-forum.org/tr-181-2-0-0.xml</URL>
+          <Description>TR-181</Description>
+        </SubTree>
+        <SubTree>
+          <URI>urn:broadband-forum-org:tr-135-1-0-0</URI>
+          <Location>/BBF/STBService/</Location>
+          <URL>http://www.example.com/upnp/stb/bbf-stb-1-0.xml</URL>
+          <Description>TR-135 STBService Object</Description>
+        </SubTree>
+      </cms:SupportedDataModels>
+    </u:GetSupportedDataModelsResponse>
+  </s:Body>
+</s:Envelope>

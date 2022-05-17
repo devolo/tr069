@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+  <specVersion>
+    <major>2</major>
+    <minor>0</minor>
+  </specVersion>
+  <device>
+    <deviceType>urn:schemas-upnp-org:device:InternetGatewayDevice:2</deviceType>
+    <friendlyName>Generic Internet-Box</friendlyName>
+    <manufacturer>Generic</manufacturer>
+    <manufacturerURL>http://www.generic.com</manufacturerURL>
+    <modelName>http://www.generic.com/internetbox</modelName>
+    <UDN>uuid:75802409-bccb-40e7-8e6a-3481C4FF2460</UDN>
+    <modelDescription>Generic Router</modelDescription>
+    <modelNumber>Router100</modelNumber>
+    <serialNumber>1234567890123456</serialNumber>
+    <presentationURL>http://internet.box</presentationURL>
+    <UPC></UPC>
+    <iconList>
+       <icon>
+         <mimetype>image/png</mimetype>
+         <width>100</width>
+         <height>100</height>
+         <depth>32</depth>
+         <url>/images/Generic_Internetbox.png</url>
+       </icon>
+     </iconList> 
+     <serviceList>
+          <service>
+            <serviceType>urn:schemas-upnp-org:service:ConfigurationManagement:2</serviceType>
+            <serviceId>urn:upnp-org:serviceId:serviceID</serviceId>
+            <controlURL>[MOCKED_IP]:[MOCKED_PORT]</controlURL>
+            <eventSubURL>[MOCKED_IP]:[MOCKED_PORT]</eventSubURL>
+            <SCPDURL>[MOCKED_IP]:[MOCKED_PORT]/UPnPdescription.xml</SCPDURL>
+          </service>
+      </serviceList>
+  </device>
+</root>
