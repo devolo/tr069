@@ -4,7 +4,7 @@
 set -e
 #set -x
 
-DEFAULT_IMAGE_VERSION="1.3.7"
+DEFAULT_IMAGE_VERSION="1.3.8"
 SCRIPT_VERISON="1.3.9"
 
 ################################################################################
