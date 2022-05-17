@@ -1,6 +1,5 @@
 #!/bin/sh
 
-TOP_DIR="$(pwd)"
 DATA_DIR="default"
 #set -x
 VERBOSE="no"
@@ -23,10 +22,11 @@ show_help() {
     echo "                    * TR181"
     echo "                    * DATASET_SP_17a"
     echo ""
-    echo "     DEVICE_SpeedportSmart3 (profile 17a)  \\"
-    echo "     DEVICE_Fritz7590       (profile 30a)   }-> mocking this device"
-    echo "     DEVICE_Fritz7490       (profile 17a)  /"
-    echo "     DEVICE_Fritz7490_without_support     /"
+    echo "     DEVICE_SpeedportSmart3 (profile 17a) \\"
+    echo "     DEVICE_Fritz7590       (profile 30a)  \\"
+    echo "     DEVICE_Fritz7490       (profile 17a)   }-> mocking this device"
+    echo "     DEVICE_Fritz7490_without_support      /"
+    echo "     DEVICE_GenericRouter                 /"
     echo "     TR181   -> responding to GetParameterValues for"
     echo "                Device.DSL.Line.1.TestParams. with 200 and data"
     echo "     TR098   -> responding to X_GENERIC_GetVDSLInfo with"
@@ -44,230 +44,282 @@ show_help() {
     echo ""
 }
 
+copy_mocks() {
+  for FILE in $XML_FILES; do
+    local IP=$(cat "/opt/MOCK_IP_ADDRESS")
+    local PORT=$(cat "/opt/${DATA_DIR}/PORT")
+    cp "/opt/$FILE" "/opt/$FILE.work"
+    sed -i "s#\[MOCKED_IP\]#${IP}#g" "/opt/$FILE.work"
+    sed -i "s#\[MOCKED_PORT\]#${PORT}#g" "/opt/$FILE.work"
+    local LEN=$(stat --format=%s "/opt/$FILE".work)
+    mkdir -p "/opt/mocks/$FILE"
+    echo -e "HTTP/1.1 200 OK\r\nConnection: Close\r\nContent-Length: ${LEN}\r\nContent-Type: text/xml\r\n\r" > "/opt/mocks/$FILE/GET.mock"
+    cat "/opt/$FILE.work" >> "/opt/mocks/$FILE/GET.mock"
+    rm "/opt/$FILE.work"
+  done
+}
+
 generate_mock() {
-    ADD_PREFIX="${1}"
-    REQUEST="${2}"
-    RESPONSE="${3}"
+  local ADD_PREFIX="$1"
+  local REQUEST="$2"
+  local RESPONSE="$3"
+  # generate mocks in the directory mocks
+  mkdir -p mocks
+  cd mocks
 
-    # generate mocks in the directory mocks
-    mkdir -p mocks && cd mocks
+  #generate the directory structure for the mock
+  export IFS="/"
+  local CURRENT_STEP=""
+  local TO_CREATE=""
+  for PART in ${REQUEST}; do
+      if [ "${PART}" = "" ]; then
+          continue;
+      else
+        CURRENT_STEP="${ADD_PREFIX}${PART}"
+        ADD_PREFIX=""
+      fi
 
-    #generate the directory structure for the mock
-    export IFS="/"
-    CURRENT_STEP=""
-    TO_CREATE=""
-    for PART in ${REQUEST}; do
-	if [ "${PART}" = "" ]; then
-	    continue;
-	else
-	    CURRENT_STEP="${ADD_PREFIX}${PART}"
-	    ADD_PREFIX=""
-	fi
-
-	if [ "${TO_CREATE}" = "" ]; then
-	    TO_CREATE="${CURRENT_STEP}"
-	else
-	    mkdir "${TO_CREATE}"
-	    cd "${TO_CREATE}"
-	    TO_CREATE="${CURRENT_STEP}"
-	fi
+      if [ "${TO_CREATE}" = "" ]; then
+        TO_CREATE="${CURRENT_STEP}"
+      else
+        mkdir -p "${TO_CREATE}"
+        cd "${TO_CREATE}"
+        TO_CREATE="${CURRENT_STEP}"
+      fi
     done
 
     #copy the response to be mocked to the mock
     cp "${RESPONSE}" "${TO_CREATE}.mock"
 
-    cd "${TOP_DIR}"
+    cd "/opt"
 }
 
 generate_response() {
-    IN_FILE="${1}"
-    OUT_FILE="${2}"
-    rm -f "${OUT_FILE}"
-    cp "${IN_FILE}" "${OUT_FILE}"
-    for FILE in ${TOP_DIR}/${DATA_DIR}/*; do
-	MOCK_NAME=$(basename "${FILE}")
-	MOCKED_DATA_CONTENT="$(cat ${TOP_DIR}/${DATA_DIR}/${MOCK_NAME})"
-	sed -i "s#\[MOCKED_${MOCK_NAME}\]#${MOCKED_DATA_CONTENT}#g" "${OUT_FILE}" || echo "Can not mock ${MOCK_NAME} in ${OUT_FILE} ..."
-    done
+  local IN_FILE="$1"
+  local OUT_FILE="$2"
+  rm -f "${OUT_FILE}"
+  cp "$IN_FILE" "$OUT_FILE"
+  for FILE in /opt/${DATA_DIR}/*; do
+    local MOCK_NAME=$(basename "$FILE")
+    local MOCKED_DATA_CONTENT="$(cat /opt/${DATA_DIR}/${MOCK_NAME})"
+    sed -i "s#\[MOCKED_${MOCK_NAME}\]#${MOCKED_DATA_CONTENT}#g" "$OUT_FILE"
+  done
+  local LINE=$(($(grep "^$" -n "$OUT_FILE" | cut -d':' -f1)+1))
+  local LEN="$(tail -n+$LINE "$OUT_FILE" | wc -c)"
+  sed -i "s#\[CALC_LEN\]#${LEN}#" "$OUT_FILE"
 }
 
 set_profile() {
-    cd "${TOP_DIR}"
-    mkdir -p "${DATA_DIR}"
-    cd "${DATA_DIR}"
+  cd "/opt"
+  mkdir -p "${DATA_DIR}"
+  cd "${DATA_DIR}"
 
-    case "${1}" in
-	DATASET_SP_17a)
-	    printf "8" > SNRGds;
-	    printf "8" > SNRGus;
-	    printf "255,255,255,255,255,255,255,255,255,168,170,172,173,174,175,176,177,177,178,178,178,179,179,179,180,180,180,180,180,181,180,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,182,182,181,182,181,182,181,181,182,182,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,180,180,180,180,180,255,180,180,179,179,179,179,179,178,178,177,177,177,177,177,177,177,177,176,176,175,174,172,169,167,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,165,166,168,169,169,169,169,169,169,169,169,169,169,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,169,169,169,169,169,169,168,167,167,166,167,168,168,169,169,169,169,169,169,169,169,169,169,169,167,167,167,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,167,168,168,255,168,167,168,168,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,154,153,154,153,154,153,152,153,153,153,153,154,153,153,154,154,155,154,154,156,156,156,156,155,156,156,157,157,157,157,157,157,157,158,158,158,158,158,157,156,155,155,154,155,154,154,154,154,154,154,155,154,155,155,156,156,157,157,157,157,156,157,157,157,157,157,157,157,156,157,157,156,157,156,156,156,156,156,156,157,156,156,156,156,156,156,157,157,156,156,157,156,156,156,156,156,156,156,157,156,156,156,156,156,156,156,156,155,155,156,156,156,155,156,155,155,156,156,156,155,155,155,156,156,156,155,156,155,155,155,155,155,156,155,155,156,155,155,155,155,155,155,154,155,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255" > SNRpsds;
-	    printf "255,255,255,064,144,163,164,145,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,064,182,180,181,180,178,178,178,177,177,176,176,176,176,175,172,173,175,175,172,175,175,172,173,174,175,175,175,174,175,173,173,172,172,173,173,172,172,170,171,172,064,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,064,176,166,172,171,174,175,177,180,181,181,181,181,181,177,171,169,166,168,155,168,170,165,164,167,158,162,165,167,164,157,164,170,163,170,168,157,169,171,169,173,173,178,178,178,179,179,179,177,169,171,168,167,158,170,166,169,172,160,160,164,165,165,165,160,157,165,161,163,160,150,158,163,162,162,160,158,163,166,174,173,174,173,172,169,162,159,150,163,159,160,163,153,151,154,159,159,156,150,157,064,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255" > SNRpsus;
-	    printf "0" > CRCErrors;
-	    printf "Up" > LinkStatus;
-	    printf "17a" > CurrentProfile;
-	    printf "139815" > DownstreamMaxBitRate;
-	    printf "55351" > UpstreamMaxBitRate;
-	    printf "102345" > DownstreamCurrRate;
-	    printf "41434" > UpstreamCurrRate;
-	    printf "176" > DownstreamNoiseMargin;
-	    printf "199" > UpstreamNoiseMargin;
-	    printf "" > length;
-	    printf "256" > SNRMTds;
-	    printf "256" > SNRMTus;
-	    printf "17,47,47,0,0" > LATNds;
-	    printf "7,47,11,0,0" > LATNus;
-	    printf "0" > FECErrors;
-	    printf "G.993.2_Annex_B" > StandardUsed;
-	;;
-	DATASET_FB_17a)
-	    printf "8" > SNRGds;
-	    printf "1" > SNRGus;
-	    printf "0,0,0,0,78,96,100,0,0,102,104,104,106,106,108,108,108,110,110,110,110,110,110,110,110,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,114,112,112,112,112,112,112,112,112,112,114,114,112,114,112,112,114,112,114,114,112,112,112,114,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,110,112,110,110,110,110,108,106,106,104,0,0,0,120,118,118,118,88,88,88,88,88,88,118,116,114,116,114,114,114,116,114,114,114,114,112,114,114,114,114,114,112,114,112,110,110,112,112,110,112,110,110,112,0,0,102,102,104,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,104,106,106,106,104,106,106,106,106,104,106,106,106,106,106,106,106,106,106,104,106,104,104,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,102,0,0,0,118,110,112,114,114,116,112,116,118,116,118,116,118,118,114,112,106,102,92,102,112,114,110,112,92,112,112,110,114,92,106,114,112,112,112,106,110,116,116,114,114,116,116,116,118,118,116,116,114,112,112,114,108,114,112,114,112,110,108,114,114,106,112,98,110,100,110,102,106,98,108,106,110,106,106,108,108,108,110,110,110,110,110,110,108,106,96,108,108,104,108,104,94,104,104,96,104,100,102,0,0,0,92,92,92,92,92,92,92,92,92,92,92,92,90,92,92,92,94,92,92,94,94,94,94,94,94,94,94,94,94,94,94,94,94,94,94,94,94,94,94,92,94,92,92,92,92,92,92,92,92,92,92,92,92,92,92,94,94,94,94,94,94,94,94,94,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,90,90,90,90,90,90,90,90,90,90,90,90,88,90,90,90,90,88,90,90,90,90,90,88,90,90,90,90,90,88,88,88,88,88,88,88,88,88,88,88,88,86,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0" > SNRpsds;
-	    printf "" > SNRpsus;
-	    printf "62" > CRCErrors;
-	    printf "Up" > LinkStatus;
-	    printf "17a" > CurrentProfile;
-	    printf "143376" > DownstreamMaxBitRate;
-	    printf "62153" > UpstreamMaxBitRate;
-	    printf "103887" > DownstreamCurrRate;
-	    printf "41434" > UpstreamCurrRate;
-	    printf "170" > DownstreamNoiseMargin;
-	    printf "200" > UpstreamNoiseMargin;
-	    printf "" > length;
-	    printf "512" > SNRMTds;
-	    printf "0" > SNRMTus;
-	    printf "2,4,4,127,127" > LATNds;
-	    printf "0,3,0,127,127" > LATNus;
-	    printf "0" > FECErrors;
-	    printf "VDSL" > StandardUsed;
-	;;
-	DATASET_FB_30a)
-	    printf "8" > SNRGds;
-	    printf "1" > SNRGus;
-	    printf "0,0,0,0,0,80,86,89,93,95,97,99,100,100,102,102,102,104,104,105,104,104,106,106,106,106,106,107,106,107,108,108,108,108,108,108,108,108,108,108,108,108,108,109,108,108,109,108,108,108,110,108,109,0,0,64,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,64,0,110,110,110,110,111,110,111,111,111,112,111,112,111,111,110,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,0,0,63,125,126,126,125,125,125,125,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,123,123,123,124,123,123,123,124,124,123,124,123,123,122,122,122,122,122,122,122,122,122,122,0,0,113,114,114,114,114,114,114,114,114,114,113,113,113,113,114,113,114,113,113,114,113,113,113,114,114,114,114,114,113,114,114,113,113,113,113,113,114,114,113,112,113,113,112,112,112,113,114,113,113,114,113,113,112,114,112,113,112,113,112,113,112,113,112,113,114,113,113,114,114,114,114,114,114,114,114,114,114,114,114,113,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0" > SNRpsds;
-	    printf "" > SNRpsus;
-	    printf "0" > CRCErrors;
-	    printf "Up" > LinkStatus;
-	    printf "30a" > CurrentProfile;
-	    printf "161792" > DownstreamMaxBitRate;
-	    printf "62081" > UpstreamMaxBitRate;
-	    printf "149998" > DownstreamCurrRate;
-	    printf "58162" > UpstreamCurrRate;
-	    printf "90" > DownstreamNoiseMargin;
-	    printf "160" > UpstreamNoiseMargin;
-	    printf "" > length;
-	    printf "512" > SNRMTds;
-	    printf "0" > SNRMTus;
-	    printf "1,1,0,127,127" > LATNds;
-	    printf "127,0,0,127,127" > LATNus;
-	    printf "0" > FECErrors;
-	    printf "VDSL" > StandardUsed;
-	;;
-	TR181)
-	    printf "TR181" > PROFILE
-	    printf "200" > RESPONSE
-	    printf "GetParameterValues" > REQUEST_KEY
-	    ;;
-	TR098)
-	    printf "TR098" > PROFILE
-	    printf "200" > RESPONSE
-	    printf "X_GENERIC_GetVDSLInfo" > REQUEST_KEY
-	    ;;
-	200)
-	    printf "200" > RESPONSE
-	    ;;
-	500)
-	    printf "500" > RESPONSE
-	    ;;
-	SpeedportSmart3)
-	    printf "Speedport Smart 3 010137.3.0.404.0" > SERVER
-	    printf 'cwmp="urn:telekom-de.totr64-2-n"' > xmlns
-	    printf "urn:telekom-de:device:1" > ST
-	    ;;
-	Fritz7590)
-	    printf "FRITZ!Box 7590 UPnP/1.0 AVM FRITZ!Box 7590 154.07.19" > SERVER
-	    printf 'u="urn:dslforum-org:service:WANDSLInterfaceConfig:1"' > xmlns
-	    printf "urn:dslforum-org:service:InternetGatewayDevice:1" > ST
-	    printf "X_AVM-DE_GetDSLInfo" > REQUEST_KEY
-	    ;;
-	Fritz7490)
-	    printf "FRITZ!Box 7490 UPnP/1.0 AVM FRITZ!Box 7490 113.07.21" > SERVER
-	    printf 'u="urn:dslforum-org:service:WANDSLInterfaceConfig:1"' > xmlns
-	    printf "urn:dslforum-org:service:InternetGatewayDevice:1" > ST
-	    printf "X_AVM-DE_GetDSLInfo" > REQUEST_KEY
-	    ;;
-	DEVICE_SpeedportSmart3)
-        set_profile DATASET_SP_17a
-	    set_profile TR181
-	    set_profile SpeedportSmart3
-	    ;;
-	DEVICE_Fritz7590)
-        set_profile DATASET_FB_30a
-	    set_profile TR098
-	    set_profile Fritz7590
-	    ;;
-	DEVICE_Fritz7490)
+  case "${1}" in
+    DATASET_SP_17a)
+      printf "8" > SNRGds;
+      printf "8" > SNRGus;
+      printf "255,255,255,255,255,255,255,255,255,168,170,172,173,174,175,176,177,177,178,178,178,179,179,179,180,180,180,180,180,181,180,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,182,182,181,182,181,182,181,181,182,182,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,181,180,180,180,180,180,255,180,180,179,179,179,179,179,178,178,177,177,177,177,177,177,177,177,176,176,175,174,172,169,167,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,165,166,168,169,169,169,169,169,169,169,169,169,169,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,169,169,169,169,169,169,168,167,167,166,167,168,168,169,169,169,169,169,169,169,169,169,169,169,167,167,167,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,168,167,168,168,255,168,167,168,168,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,154,153,154,153,154,153,152,153,153,153,153,154,153,153,154,154,155,154,154,156,156,156,156,155,156,156,157,157,157,157,157,157,157,158,158,158,158,158,157,156,155,155,154,155,154,154,154,154,154,154,155,154,155,155,156,156,157,157,157,157,156,157,157,157,157,157,157,157,156,157,157,156,157,156,156,156,156,156,156,157,156,156,156,156,156,156,157,157,156,156,157,156,156,156,156,156,156,156,157,156,156,156,156,156,156,156,156,155,155,156,156,156,155,156,155,155,156,156,156,155,155,155,156,156,156,155,156,155,155,155,155,155,156,155,155,156,155,155,155,155,155,155,154,155,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255" > SNRpsds;
+      printf "255,255,255,064,144,163,164,145,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,064,182,180,181,180,178,178,178,177,177,176,176,176,176,175,172,173,175,175,172,175,175,172,173,174,175,175,175,174,175,173,173,172,172,173,173,172,172,170,171,172,064,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,064,176,166,172,171,174,175,177,180,181,181,181,181,181,177,171,169,166,168,155,168,170,165,164,167,158,162,165,167,164,157,164,170,163,170,168,157,169,171,169,173,173,178,178,178,179,179,179,177,169,171,168,167,158,170,166,169,172,160,160,164,165,165,165,160,157,165,161,163,160,150,158,163,162,162,160,158,163,166,174,173,174,173,172,169,162,159,150,163,159,160,163,153,151,154,159,159,156,150,157,064,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255" > SNRpsus;
+      printf "0" > CRCErrors;
+      printf "Up" > LinkStatus;
+      printf "17a" > CurrentProfile;
+      printf "139815" > DownstreamMaxBitRate;
+      printf "55351" > UpstreamMaxBitRate;
+      printf "102345" > DownstreamCurrRate;
+      printf "41434" > UpstreamCurrRate;
+      printf "176" > DownstreamNoiseMargin;
+      printf "199" > UpstreamNoiseMargin;
+      printf "" > length;
+      printf "256" > SNRMTds;
+      printf "256" > SNRMTus;
+      printf "17,47,47,0,0" > LATNds;
+      printf "7,47,11,0,0" > LATNus;
+      printf "0" > FECErrors;
+      printf "G.993.2_Annex_B" > StandardUsed;
+      ;;
+    DATASET_FB_17a)
+        printf "8" > SNRGds;
+        printf "1" > SNRGus;
+        printf "0,0,0,0,78,96,100,0,0,102,104,104,106,106,108,108,108,110,110,110,110,110,110,110,110,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,114,112,112,112,112,112,112,112,112,112,114,114,112,114,112,112,114,112,114,114,112,112,112,114,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,110,112,110,110,110,110,108,106,106,104,0,0,0,120,118,118,118,88,88,88,88,88,88,118,116,114,116,114,114,114,116,114,114,114,114,112,114,114,114,114,114,112,114,112,110,110,112,112,110,112,110,110,112,0,0,102,102,104,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,104,106,106,106,104,106,106,106,106,104,106,106,106,106,106,106,106,106,106,104,106,104,104,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,102,0,0,0,118,110,112,114,114,116,112,116,118,116,118,116,118,118,114,112,106,102,92,102,112,114,110,112,92,112,112,110,114,92,106,114,112,112,112,106,110,116,116,114,114,116,116,116,118,118,116,116,114,112,112,114,108,114,112,114,112,110,108,114,114,106,112,98,110,100,110,102,106,98,108,106,110,106,106,108,108,108,110,110,110,110,110,110,108,106,96,108,108,104,108,104,94,104,104,96,104,100,102,0,0,0,92,92,92,92,92,92,92,92,92,92,92,92,90,92,92,92,94,92,92,94,94,94,94,94,94,94,94,94,94,94,94,94,94,94,94,94,94,94,94,92,94,92,92,92,92,92,92,92,92,92,92,92,92,92,92,94,94,94,94,94,94,94,94,94,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,92,90,90,90,90,90,90,90,90,90,90,90,90,88,90,90,90,90,88,90,90,90,90,90,88,90,90,90,90,90,88,88,88,88,88,88,88,88,88,88,88,88,86,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0" > SNRpsds;
+        printf "" > SNRpsus;
+        printf "62" > CRCErrors;
+        printf "Up" > LinkStatus;
+        printf "17a" > CurrentProfile;
+        printf "143376" > DownstreamMaxBitRate;
+        printf "62153" > UpstreamMaxBitRate;
+        printf "103887" > DownstreamCurrRate;
+        printf "41434" > UpstreamCurrRate;
+        printf "170" > DownstreamNoiseMargin;
+        printf "200" > UpstreamNoiseMargin;
+        printf "" > length;
+        printf "512" > SNRMTds;
+        printf "0" > SNRMTus;
+        printf "2,4,4,127,127" > LATNds;
+        printf "0,3,0,127,127" > LATNus;
+        printf "0" > FECErrors;
+        printf "VDSL" > StandardUsed;
+      ;;
+    DATASET_FB_30a)
+      printf "8" > SNRGds;
+      printf "1" > SNRGus;
+      printf "0,0,0,0,0,80,86,89,93,95,97,99,100,100,102,102,102,104,104,105,104,104,106,106,106,106,106,107,106,107,108,108,108,108,108,108,108,108,108,108,108,108,108,109,108,108,109,108,108,108,110,108,109,0,0,64,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,127,64,0,110,110,110,110,111,110,111,111,111,112,111,112,111,111,110,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,112,0,0,63,125,126,126,125,125,125,125,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,124,123,123,123,124,123,123,123,124,124,123,124,123,123,122,122,122,122,122,122,122,122,122,122,0,0,113,114,114,114,114,114,114,114,114,114,113,113,113,113,114,113,114,113,113,114,113,113,113,114,114,114,114,114,113,114,114,113,113,113,113,113,114,114,113,112,113,113,112,112,112,113,114,113,113,114,113,113,112,114,112,113,112,113,112,113,112,113,112,113,114,113,113,114,114,114,114,114,114,114,114,114,114,114,114,113,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0" > SNRpsds;
+      printf "" > SNRpsus;
+      printf "0" > CRCErrors;
+      printf "Up" > LinkStatus;
+      printf "30a" > CurrentProfile;
+      printf "161792" > DownstreamMaxBitRate;
+      printf "62081" > UpstreamMaxBitRate;
+      printf "149998" > DownstreamCurrRate;
+      printf "58162" > UpstreamCurrRate;
+      printf "90" > DownstreamNoiseMargin;
+      printf "160" > UpstreamNoiseMargin;
+      printf "" > length;
+      printf "512" > SNRMTds;
+      printf "0" > SNRMTus;
+      printf "1,1,0,127,127" > LATNds;
+      printf "127,0,0,127,127" > LATNus;
+      printf "0" > FECErrors;
+      printf "VDSL" > StandardUsed;
+      ;;
+    TR181)
+      printf "TR181" > PROFILE
+      printf "200" > RESPONSE
+      printf "GetParameterValues" > REQUEST_KEY
+      ;;
+    TR098)
+      printf "TR098" > PROFILE
+      printf "200" > RESPONSE
+      printf "X_GENERIC_GetVDSLInfo" > REQUEST_KEY
+      ;;
+    200)
+      printf "200" > RESPONSE
+      ;;
+    500)
+      printf "500" > RESPONSE
+      ;;
+    SpeedportSmart3)
+      printf "Speedport Smart 3 010137.3.5.000.0" > SERVER
+      printf "description.xml" > LOCATION
+      printf 'cwmp="urn:urn:telekom-de:device"' > xmlns
+      printf "urn:telekom-de:device:1" > ST
+      printf "5438" > PORT
+      XML_FILES='tr064dev.xml'
+      POST_ACT='GetParameterValues'
+      ;;
+    SpeedportW922V)
+      printf "DTW922V UPnP/1.0 Speedport W 922V 01013203.01.002" > SERVER
+      printf "tr64_igd.xml" > LOCATION
+      printf 'cwmp="urn:telekom-de.totr64-2-n"' > xmlns
+      printf "urn:dslforum-org:device:InternetGatewayDevice:1" > ST
+      printf "5438" > PORT
+      XML_FILES='tr64_igd.xml tr64_igd_wdic.xml'
+      POST_ACT='GetParameterValues'
+      ;;
+    Fritz7590)
+      printf "FRITZ!Box 7590 UPnP/1.0 AVM FRITZ!Box 7590 154.07.19" > SERVER
+      printf "tr64desc.xml" > LOCATION
+      printf 'u="urn:dslforum-org:service:WANDSLInterfaceConfig:1"' > xmlns
+      printf "urn:dslforum-org:service:InternetGatewayDevice:1" > ST
+      printf "X_AVM-DE_GetDSLInfo" > REQUEST_KEY
+      printf "49000" > PORT
+      XML_FILES='tr64desc.xml wandslifconfigSCPD.xml'
+      ;;
+    Fritz7490)
+      printf "FRITZ!Box 7490 UPnP/1.0 AVM FRITZ!Box 7490 113.07.21" > SERVER
+      printf "tr64desc.xml" > LOCATION
+      printf 'u="urn:dslforum-org:service:WANDSLInterfaceConfig:1"' > xmlns
+      printf "urn:dslforum-org:service:InternetGatewayDevice:1" > ST
+      printf "X_AVM-DE_GetDSLInfo" > REQUEST_KEY
+      printf "49000" > PORT
+      XML_FILES='tr64desc.xml wandslifconfigSCPD.xml'
+      ;;
+    GenericRouter)
+      printf "Generic Router UPnP/1.0 generic router 1.1.0" > SERVER
+      printf "tr064gen.xml" > LOCATION
+      printf 'u="urn:schemas-upnp-org:service:ConfigurationManagement:2"' > xmlns
+      printf "urn:schemas-upnp-org:service:ConfigurationManagement:2" > ST
+      printf "49001" > PORT
+      XML_FILES='tr064gen.xml UPnPdescription.xml'
+      POST_ACT='GetSupportedDataModels GetSupportedParameters GetValues'
+      ;;
+    DEVICE_SpeedportSmart3)
+      set_profile DATASET_SP_17a
+      set_profile TR181
+      set_profile SpeedportSmart3
+      ;;
+    DEVICE_Fritz7590)
+      set_profile DATASET_FB_30a
+      set_profile TR098
+      set_profile Fritz7590
+      ;;
+    DEVICE_Fritz7490)
         set_profile DATASET_FB_17a
-	    set_profile TR098
-	    set_profile Fritz7490
-	    ;;
-	DEVICE_Fritz7490_without_support)
-	    set_profile TR098
-	    set_profile 500
-	    set_profile Fritz7490
-	    ;;
-	*)
-	    DATA_DIR="${1}"
-	    ;;
-    esac
-    cd "${TOP_DIR}"
+      set_profile TR098
+      set_profile Fritz7490
+      ;;
+    DEVICE_Fritz7490_without_support)
+      set_profile TR098
+      set_profile 500
+      set_profile Fritz7490
+      ;;
+    DEVICE_GenericRouter)
+      set_profile DATASET_SP_17a
+      set_profile TR181
+      set_profile GenericRouter
+      ;;
+    *)
+      DATA_DIR="${1}"
+      ;;
+  esac
+  cd "/opt"
 }
 
 generate_mocks() {
-    rm -rf "mocks"
+  rm -rf "mocks"
 
-    generate_response "${TOP_DIR}/$(cat ${TOP_DIR}/${DATA_DIR}/PROFILE).$(cat ${TOP_DIR}/${DATA_DIR}/RESPONSE)" "${TOP_DIR}/response"
-    case $(cat ${TOP_DIR}/${DATA_DIR}/PROFILE) in
-	TR181)
-	    cp SOAP.request "${TOP_DIR}/SOAP.request.work"
-	    XMLNS_CONTENT="$(cat ${TOP_DIR}/${DATA_DIR}/xmlns)"
-	    sed -i "s#\[MOCKED_xmlns\]#${XMLNS_CONTENT}#g" "${TOP_DIR}/SOAP.request.work"
-	    SOAP_REQUEST=$(cat "${TOP_DIR}/SOAP.request.work")
-	    rm "${TOP_DIR}/SOAP.request.work"
-	    generate_mock "POST--" "${SOAP_REQUEST}" "${TOP_DIR}/response"
-	;;
-	TR098)
-	    generate_mock "" "upnp/control/wandslifconfig1/POST" "${TOP_DIR}/response"
-	;;
-    esac
-    rm "${TOP_DIR}/response"
+  copy_mocks
 
-    generate_mock "" "alive-response/GET" "${TOP_DIR}/alive.response"
+  case $(cat /opt/${DATA_DIR}/PROFILE) in
+    TR181)
+      for I in $POST_ACT; do
+        generate_response "/opt/$(cat "/opt/${DATA_DIR}/PROFILE")_${I}.$(cat "/opt/${DATA_DIR}/RESPONSE")" "/opt/response"
+        cp "/opt/SOAP_${I}.request" "/opt/SOAP.request.work"
+        local XMLNS_CONTENT="$(cat /opt/${DATA_DIR}/xmlns)"
+        sed -i "s#\[MOCKED_xmlns\]#${XMLNS_CONTENT}#g" "/opt/SOAP.request.work"
+        local SOAP_REQUEST="$(cat "/opt/SOAP.request.work")"
+        rm "/opt/SOAP.request.work"
+        generate_mock "POST--" "${SOAP_REQUEST}" "/opt/response"
+      done
+      ;;
+    TR098)
+      generate_response "/opt/$(cat /opt/${DATA_DIR}/PROFILE).$(cat /opt/${DATA_DIR}/RESPONSE)" "/opt/response"
+      generate_mock "" "upnp/control/wandslifconfig1/POST" "/opt/response"
+      ;;
+  esac
+  rm "/opt/response"
+
+  generate_mock "" "alive-response/GET" "/opt/alive.response"
 }
 
 check_mocking_services() {
-    MOCKERVER_RUNNING=$(ps lax | grep [n]ode | grep mockserver)
-
-    if [ "${MOCKERVER_RUNNING}" = "" ]; then
-	# start the mocking itself
-	python3 "${TOP_DIR}/mockserver_handler.py" "--log=${TOP_DIR}/mock.log"
+  cd "/opt"
+  local RESTART_SSPD="no"
+  for FILE in SERVER ST LOCATION PORT; do
+    local MOCK_NAME=$(basename "${FILE}")
+    local MOCKED_DATA_OLD_CONTENT="$(cat .${MOCK_NAME}_OLD_CONTENT)"
+    local MOCKED_DATA_CONTENT="$(cat ${DATA_DIR}/${MOCK_NAME})"
+    echo "${MOCKED_DATA_CONTENT}">.${MOCK_NAME}_OLD_CONTENT
+    if [ "${MOCKED_DATA_OLD_CONTENT}" != "${MOCKED_DATA_CONTENT}" ]; then
+        RESTART_SSPD="yes"
     fi
-
-    cd "${TOP_DIR}"
-    RESTART_SSPD="no"
-    for FILE in SERVER ST; do
-	MOCK_NAME=$(basename "${FILE}")
-	MOCKED_DATA_OLD_CONTENT="$(cat .${MOCK_NAME}_OLD_CONTENT)"
-	MOCKED_DATA_CONTENT="$(cat ${DATA_DIR}/${MOCK_NAME})"
-	echo "${MOCKED_DATA_CONTENT}">.${MOCK_NAME}_OLD_CONTENT
-	if [ "${MOCKED_DATA_OLD_CONTENT}" != "${MOCKED_DATA_CONTENT}" ]; then
-	    RESTART_SSPD="yes"
-	fi
-    done
-    if [ "${RESTART_SSPD}" != "no" ]; then
-	pkill python3 || echo "No SSDP mock killed ..."
-	python3 ./ssdp_mock.py --logfile=./ssdp.log --st="$(cat ${DATA_DIR}/ST)" --server-name="$(cat ${DATA_DIR}/SERVER)" --location-ip=$(cat "${TOP_DIR}/MOCK_IP_ADDRESS") &
-    fi
+  done
+  if [ "${RESTART_SSPD}" != "no" ]; then
+    pkill node
+    python3 "/opt/mockserver_handler.py" "--log=/opt/mock.log" "--port=$(cat "/opt/${DATA_DIR}/PORT")"
+    pkill python3 || echo "No SSDP mock killed ..."
+    python3 ./ssdp_mock.py --logfile=./ssdp.log --st="$(cat ${DATA_DIR}/ST)" --server-name="$(cat ${DATA_DIR}/SERVER)"\
+      --location-ip=$(cat "/opt/MOCK_IP_ADDRESS") --location-port=$(cat "/opt/${DATA_DIR}/PORT") --location-file=$(cat "/opt/${DATA_DIR}/LOCATION")&
+  fi
 }
 
 read_commandline() {
@@ -294,7 +346,7 @@ read_commandline() {
             exit 1
             ;;
             --IP=?*)
-		printf "${1#*=}">"${TOP_DIR}/MOCK_IP_ADDRESS"
+		printf "${1#*=}">"/opt/MOCK_IP_ADDRESS"
 		;;
             --verbose=?*)
 		VERBOSE=${1#*=}
@@ -328,18 +380,18 @@ read_commandline() {
 # mainline
 #
 ################################################################################
-if [ ! -d "${TOP_DIR}/${DATA_DIR}" ]; then
+if [ ! -d "/opt/${DATA_DIR}" ]; then
 	rm .*_OLD_CONTENT
 fi
 
 read_commandline ${@}
 
-if [ -d "${TOP_DIR}/${DATA_DIR}" ]; then
+if [ -d "/opt/${DATA_DIR}" ]; then
     if [ "${VERBOSE}" != "no" ]; then
-	echo "Imported data from ${TOP_DIR}/${DATA_DIR}:"
-	for FILE in ${TOP_DIR}/${DATA_DIR}/*; do
+	echo "Imported data from /opt/${DATA_DIR}:"
+	for FILE in /opt/${DATA_DIR}/*; do
 	    MOCKED_DATA_CHUNK=$(basename "${FILE}")
-	    echo "  ${MOCKED_DATA_CHUNK}=$(cat ${TOP_DIR}/${DATA_DIR}/${MOCKED_DATA_CHUNK})"
+	    echo "  ${MOCKED_DATA_CHUNK}=$(cat /opt/${DATA_DIR}/${MOCKED_DATA_CHUNK})"
 	done
     fi
 else
