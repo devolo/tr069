@@ -51,9 +51,15 @@ copy_mocks() {
       if [ -f "/opt/$FILE" ]; then
         local IP=$(cat "/opt/MOCK_IP_ADDRESS")
         local PORT=$(cat "/opt/${DATA_DIR}/PORT")
+        if [ -f "/opt/${DATA_DIR}/PATH" ]; then 
+          local URL_PATH=$(cat "/opt/${DATA_DIR}/PATH")
+        else
+          local URL_PATH=''
+        fi
         cp "/opt/$FILE" "/opt/$FILE.work"
         sed -i "s#\[MOCKED_IP\]#${IP}#g" "/opt/$FILE.work"
         sed -i "s#\[MOCKED_PORT\]#${PORT}#g" "/opt/$FILE.work"
+        sed -i "s#\[MOCKED_PATH\]#${URL_PATH}#g" "/opt/$FILE.work"
         local LEN=$(stat --format=%s "/opt/$FILE".work)
         mkdir -p "/opt/mocks/$FILE"
         echo -e "HTTP/1.1 200 OK\r\nConnection: Close\r\nContent-Length: ${LEN}\r\nContent-Type: text/xml\r\n\r" > "/opt/mocks/$FILE/GET.mock"
@@ -212,6 +218,7 @@ set_profile() {
       printf "5438" > PORT
       printf 'description.xml' > XML_FILES
       printf 'GetParameterValues' > POST_ACT
+      printf '' > PATH
       ;;
     SpeedportW922V)
       printf "DTW922V UPnP/1.0 Speedport W 922V 01013203.01.002" > SERVER
@@ -221,6 +228,7 @@ set_profile() {
       printf "5438" > PORT
       printf 'tr64_igd.xml tr64_igd_wdic.xml' > XML_FILES
       printf 'GetParameterValues' > POST_ACT
+      printf '' > PATH
       ;;
     Fritz7590)
       printf "FRITZ!Box 7590 UPnP/1.0 AVM FRITZ!Box 7590 154.07.19" > SERVER
@@ -230,6 +238,7 @@ set_profile() {
       printf "X_AVM-DE_GetDSLInfo" > REQUEST_KEY
       printf "49000" > PORT
       printf 'tr64desc.xml wandslifconfigSCPD.xml' > XML_FILES
+      printf 'upnp/control/wandslifconfig1' > PATH
       ;;
     Fritz7490)
       printf "FRITZ!Box 7490 UPnP/1.0 AVM FRITZ!Box 7490 113.07.21" > SERVER
@@ -239,6 +248,7 @@ set_profile() {
       printf "X_AVM-DE_GetDSLInfo" > REQUEST_KEY
       printf "49000" > PORT
       printf 'tr64desc.xml wandslifconfigSCPD.xml' > XML_FILES
+      printf 'upnp/control/wandslifconfig1' > PATH
       ;;
     GenericRouter)
       printf "Generic Router UPnP/1.0 generic router 1.1.0" > SERVER
@@ -248,6 +258,7 @@ set_profile() {
       printf "49001" > PORT
       printf 'tr064gen.xml UPnPdescription.xml' > XML_FILES
       printf 'GetSupportedDataModels GetSupportedParameters GetValues' > POST_ACT
+      printf '' > PATH
       ;;
     DEVICE_SpeedportSmart3)
       set_profile DATASET_SP_17a
@@ -284,7 +295,16 @@ set_profile() {
 generate_mocks() {
   rm -rf "mocks"
 
+  if [ ! -f "/opt/${DATA_DIR}/PATH" ]; then
+    touch "/opt/${DATA_DIR}/PATH"
+  fi
+
   copy_mocks
+
+  local MOCK_PATH="$(cat "/opt/${DATA_DIR}/PATH")"
+  if [ -n "$MOCK_PATH" ]; then
+    echo "$MOCK_PATH " | grep -q '/$' || MOCK_PATH="${MOCK_PATH}/"
+  fi
 
   case $(cat /opt/${DATA_DIR}/PROFILE) in
     TR181)
@@ -300,12 +320,12 @@ generate_mocks() {
         sed -i "s#\[MOCKED_xmlns\]#${XMLNS_CONTENT}#g" "/opt/SOAP.request.work"
         local SOAP_REQUEST="$(cat "/opt/SOAP.request.work")"
         rm "/opt/SOAP.request.work"
-        generate_mock "POST--" "${SOAP_REQUEST}" "/opt/response"
+        generate_mock "${MOCK_PATH}POST--" "${SOAP_REQUEST}" "/opt/response"
       done
       ;;
     TR098)
       generate_response "/opt/$(cat /opt/${DATA_DIR}/PROFILE).$(cat /opt/${DATA_DIR}/RESPONSE)" "/opt/response"
-      generate_mock "" "upnp/control/wandslifconfig1/POST" "/opt/response"
+      generate_mock "" "${MOCK_PATH}POST" "/opt/response"
       ;;
   esac
   rm "/opt/response"
@@ -336,6 +356,7 @@ check_mocking_services() {
     pkill python3 || echo "No SSDP mock killed ..."
     python3 ./ssdp_mock.py --logfile=./ssdp.log --st="$(cat ${DATA_DIR}/ST)" --server-name="$(cat ${DATA_DIR}/SERVER)"\
       --location-ip=$(cat "/opt/MOCK_IP_ADDRESS") --location-port=$(cat "/opt/${DATA_DIR}/PORT") --location-file=$(cat "/opt/${DATA_DIR}/LOCATION")&
+    echo "### ok"
   fi
 }
 

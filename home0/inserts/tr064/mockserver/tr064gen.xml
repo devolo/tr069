@@ -29,8 +29,8 @@
           <service>
             <serviceType>urn:schemas-upnp-org:service:ConfigurationManagement:2</serviceType>
             <serviceId>urn:upnp-org:serviceId:serviceID</serviceId>
-            <controlURL>[MOCKED_IP]:[MOCKED_PORT]</controlURL>
-            <eventSubURL>[MOCKED_IP]:[MOCKED_PORT]</eventSubURL>
+            <controlURL>[MOCKED_IP]:[MOCKED_PORT]/[MOCKED_PATH]</controlURL>
+            <eventSubURL>[MOCKED_IP]:[MOCKED_PORT]/[MOCKED_PATH]</eventSubURL>
             <SCPDURL>[MOCKED_IP]:[MOCKED_PORT]/UPnPdescription.xml</SCPDURL>
           </service>
       </serviceList>
