@@ -3,74 +3,75 @@ SERVER: [MOCKED_SERVER]
 CACHE-CONTROL: max-age=1800
 CONTENT-TYPE: text/xml; charset=utf-8
 CONTENT-LENGTH: [CALC_LEN]
+TRANSFER-ENCODING: [MOCKED_ENCODING]
 
 <?xml version="1.0"?>
 <s:Envelope
-xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
-s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-<s:Body>
-<u:GetSupportedParametersResponse xmlns:u="urn:schemas-upnp-org:service:ConfigurationManagement:2">
-<cms:Result xmlns:cms="urn:schemas-upnp-org:dm:cms">
-<cms:StructurePathList>
-<StructurePath>
-/BBF/DSL/Line/0/TestParams/SNRGds
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Line/0/TestParams/SNRGus
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Line/0/TestParams/SNRpsds
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Line/0/TestParams/SNRpsus
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Line/0/TestParams/SNRMTds
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Line/0/TestParams/SNRMTus
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Line/0/TestParams/LATNds
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Line/0/TestParams/LATNus
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Channel/0/Stats/Total/XTURFECErrors
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Channel/0/Stats/Total/XTURCRCErrors
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Line/0/LinkStatus
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Line/0/StandardUsed
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Line/0/CurrentProfile
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Line/0/DownstreamMaxBitRate
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Line/0/UpstreamMaxBitRate
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Line/0/DownstreamNoiseMargin
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Line/0/UpstreamNoiseMargin
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Channel/0/DownstreamCurrRate
-</StructurePath>
-<StructurePath>
-/BBF/DSL/Channel/0/UpstreamCurrRate
-</StructurePath>
-</cms:StructurePathList>
-</cms:Result>
-</u:GetSupportedParametersResponse>
-</s:Body>
+  xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+  s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+  <s:Body>
+    <u:GetSupportedParametersResponse xmlns:u="urn:schemas-upnp-org:service:ConfigurationManagement:2">
+      <cms:Result xmlns:cms="urn:schemas-upnp-org:dm:cms">
+        <cms:StructurePathList>
+          <StructurePath>
+            /BBF/DSL/Line/0/TestParams/SNRGds
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Line/0/TestParams/SNRGus
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Line/0/TestParams/SNRpsds
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Line/0/TestParams/SNRpsus
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Line/0/TestParams/SNRMTds
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Line/0/TestParams/SNRMTus
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Line/0/TestParams/LATNds
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Line/0/TestParams/LATNus
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Channel/0/Stats/Total/XTURFECErrors
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Channel/0/Stats/Total/XTURCRCErrors
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Line/0/LinkStatus
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Line/0/StandardUsed
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Line/0/CurrentProfile
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Line/0/DownstreamMaxBitRate
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Line/0/UpstreamMaxBitRate
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Line/0/DownstreamNoiseMargin
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Line/0/UpstreamNoiseMargin
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Channel/0/DownstreamCurrRate
+          </StructurePath>
+          <StructurePath>
+            /BBF/DSL/Channel/0/UpstreamCurrRate
+          </StructurePath>
+        </cms:StructurePathList>
+      </cms:Result>
+    </u:GetSupportedParametersResponse>
+  </s:Body>
 </s:Envelope>

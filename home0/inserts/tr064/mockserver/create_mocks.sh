@@ -27,6 +27,8 @@ show_help() {
     echo "     DEVICE_Fritz7490       (profile 17a)   }-> mocking this device"
     echo "     DEVICE_Fritz7490_without_support      /"
     echo "     DEVICE_GenericRouter                 /"
+    echo "     DEVICE_GenericRouterChunked         /"
+    echo "     CHUNKED -> Transfer-Encoding: chunked"
     echo "     TR181   -> responding to GetParameterValues for"
     echo "                Device.DSL.Line.1.TestParams. with 200 and data"
     echo "     TR098   -> responding to X_GENERIC_GetVDSLInfo with"
@@ -51,18 +53,19 @@ copy_mocks() {
       if [ -f "/opt/$FILE" ]; then
         local IP=$(cat "/opt/MOCK_IP_ADDRESS")
         local PORT=$(cat "/opt/${DATA_DIR}/PORT")
-        if [ -f "/opt/${DATA_DIR}/PATH" ]; then 
-          local URL_PATH=$(cat "/opt/${DATA_DIR}/PATH")
-        else
-          local URL_PATH=''
-        fi
+        local URL_PATH=$(cat "/opt/${DATA_DIR}/PATH")
         cp "/opt/$FILE" "/opt/$FILE.work"
         sed -i "s#\[MOCKED_IP\]#${IP}#g" "/opt/$FILE.work"
         sed -i "s#\[MOCKED_PORT\]#${PORT}#g" "/opt/$FILE.work"
         sed -i "s#\[MOCKED_PATH\]#${URL_PATH}#g" "/opt/$FILE.work"
         local LEN=$(stat --format=%s "/opt/$FILE".work)
         mkdir -p "/opt/mocks/$FILE"
-        echo -e "HTTP/1.1 200 OK\r\nConnection: Close\r\nContent-Length: ${LEN}\r\nContent-Type: text/xml\r\n\r" > "/opt/mocks/$FILE/GET.mock"
+        if [ -f "/opt/${DATA_DIR}/ENCODING" ]; then
+          local ENCODING=$(cat "/opt/${DATA_DIR}/ENCODING")
+          echo -e "HTTP/1.1 200 OK\r\nConnection: Close\r\nTransfer-Encoding: ${ENCODING}\r\nContent-Type: text/xml\r\n\r" > "/opt/mocks/$FILE/GET.mock"
+        else
+          echo -e "HTTP/1.1 200 OK\r\nConnection: Close\r\nContent-Length: ${LEN}\r\nContent-Type: text/xml\r\n\r" > "/opt/mocks/$FILE/GET.mock"
+        fi
         cat "/opt/$FILE.work" >> "/opt/mocks/$FILE/GET.mock"
         rm "/opt/$FILE.work"
       else
@@ -117,6 +120,14 @@ generate_response() {
     local MOCKED_DATA_CONTENT="$(cat /opt/${DATA_DIR}/${MOCK_NAME})"
     sed -i "s#\[MOCKED_${MOCK_NAME}\]#${MOCKED_DATA_CONTENT}#g" "$OUT_FILE"
   done
+  if [ -f "/opt/${DATA_DIR}/ENCODING" ]; then
+    local ENCODING=$(cat "/opt/${DATA_DIR}/ENCODING")
+    if [ "$ENCODING" = "chunked" ]; then
+      sed -i '/CONTENT-LENGTH/d' "$OUT_FILE"
+    fi
+  else
+    sed -i '/TRANSFER-ENCODING/d' "$OUT_FILE"
+  fi
   local LINE=$(($(grep "^$" -n "$OUT_FILE" | cut -d':' -f1)+1))
   local LEN="$(tail -n+$LINE "$OUT_FILE" | wc -c)"
   sed -i "s#\[CALC_LEN\]#${LEN}#" "$OUT_FILE"
@@ -194,6 +205,12 @@ set_profile() {
       printf "0" > FECErrors;
       printf "VDSL" > StandardUsed;
       ;;
+    CHUNKED)
+      printf "chunked" > ENCODING;
+      ;;
+    NOT_CHUNKED)
+      rm -f ENCODING;
+      ;;
     TR181)
       printf "TR181" > PROFILE
       printf "200" > RESPONSE
@@ -264,26 +281,37 @@ set_profile() {
       set_profile DATASET_SP_17a
       set_profile TR181
       set_profile SpeedportSmart3
+      set_profile NOT_CHUNKED
       ;;
     DEVICE_Fritz7590)
       set_profile DATASET_FB_30a
       set_profile TR098
       set_profile Fritz7590
+      set_profile NOT_CHUNKED
       ;;
     DEVICE_Fritz7490)
       set_profile DATASET_FB_17a
       set_profile TR098
       set_profile Fritz7490
+      set_profile NOT_CHUNKED
       ;;
     DEVICE_Fritz7490_without_support)
       set_profile TR098
       set_profile 500
       set_profile Fritz7490
+      set_profile NOT_CHUNKED
       ;;
     DEVICE_GenericRouter)
       set_profile DATASET_SP_17a
       set_profile TR181
       set_profile GenericRouter
+      set_profile NOT_CHUNKED
+      ;;
+    DEVICE_GenericRouterChunked)
+      set_profile DATASET_SP_17a
+      set_profile TR181
+      set_profile GenericRouter
+      set_profile CHUNKED
       ;;
     *)
       DATA_DIR="${1}"
@@ -356,7 +384,6 @@ check_mocking_services() {
     pkill python3 || echo "No SSDP mock killed ..."
     python3 ./ssdp_mock.py --logfile=./ssdp.log --st="$(cat ${DATA_DIR}/ST)" --server-name="$(cat ${DATA_DIR}/SERVER)"\
       --location-ip=$(cat "/opt/MOCK_IP_ADDRESS") --location-port=$(cat "/opt/${DATA_DIR}/PORT") --location-file=$(cat "/opt/${DATA_DIR}/LOCATION")&
-    echo "### ok"
   fi
 }
 

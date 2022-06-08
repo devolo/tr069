@@ -3,6 +3,7 @@ SERVER: [MOCKED_SERVER]
 CACHE-CONTROL: max-age=1800
 CONTENT-TYPE: text/xml; charset=utf-8
 CONTENT-LENGTH: [CALC_LEN]
+TRANSFER-ENCODING: [MOCKED_ENCODING]
 
 <?xml version="1.0"?>
 <s:Envelope
