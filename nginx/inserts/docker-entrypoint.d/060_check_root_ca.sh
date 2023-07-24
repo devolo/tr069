@@ -14,7 +14,7 @@ COMMONNAME=${HOSTNAME}
 COUNTRY=DE
 STATE=NRW
 LOCALITY=Aachen
-ORGANIZATION="devolo AG"
+ORGANIZATION="devolo GmbH"
 ORGANIZATIONALUNIT=ENG
 EMAIL=christian.katsch@devolo.de
 #############################################################
