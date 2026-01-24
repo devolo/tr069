@@ -1,7 +1,7 @@
 HTTP/1.1 500 Internal Server Error
 SERVER: [MOCKED_SERVER]
 CONNECTION: close
-CONTENT-LENGTH: [MOCKED_length]
+CONTENT-LENGTH: [CALC_LEN]
 CONTENT-TYPE: text/xml; charset="utf-8"
 
 <?xml version="1.0"?>

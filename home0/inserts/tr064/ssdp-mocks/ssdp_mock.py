@@ -20,12 +20,13 @@ def setup_logger(logfile: str):
 
 
 class MockSSDPServer:
-    def __init__(self, ip="0.0.0.0", port=1900, location_ip="127.0.0.1", location_port=49000, timeout=5, server_name="Speedport Smart 3",
+    def __init__(self, ip="0.0.0.0", port=1900, location_ip="127.0.0.1", location_port=49000, location_file='tr064dev.xml', timeout=5, server_name="Speedport Smart 3",
                  st="urn:telekom-de:device:TO_InternetGatewayDevice:2"):
         self.ip = ip
         self.port = port
         self.location_ip = location_ip
         self.location_port = location_port
+        self.location_file = location_file
         self.timeout = timeout
         self.server_name = server_name
         self.st = st
@@ -44,14 +45,14 @@ class MockSSDPServer:
     def _send_mock_response(self, addr: str):
         response = ['HTTP/1.1 200 OK',
                     'CACHE-CONTROL: max-age=1800',
-                    'LOCATION: http://{}:{}/description.xml'.format(
-                        self.location_ip, self.location_port),
+                    'LOCATION: http://{}:{}/{}'.format(
+                        self.location_ip, self.location_port, self.location_file),
                     'SERVER: {}'.format(self.server_name),
                     'Date: {}'.format(datetime.date.today().strftime(
                         "%a, %d %b %Y %H:%M:%S")),
                     'EXT: ',
                     'ST: {}'.format(self.st),
-                    'USN: {}{}'.format("uuid:00000000-0000-0002-0000-44fffffffe3b38ffffffa2ffffffb4::",self.st)]
+                    'USN: {}{}'.format("uuid:739f2409-bccb-40e7-8e6c-582af7c5b426::",self.st)]
 
         response.extend(('', ''))
         response = '\r\n'.join(response)
@@ -100,12 +101,13 @@ def main():
     parser.add_argument('--location-ip', dest="location_ip", action='store', help="Mock value for the IP address inside the LOCATION parameter.")
     parser.add_argument('--location-port', dest="location_port", action='store', type=int, default=49000,
                         help="Mock value for the Port inside the LOCATION parameter.")
+    parser.add_argument('--location-file', dest="location_file", action='store', default="description.xml", help="LOCATION XML file.")
 
     args = parser.parse_args()
     setup_logger(logfile=args.logfile)
 
     try:
-        server = MockSSDPServer(location_ip=args.location_ip, location_port=args.location_port, server_name=args.server_name, st=args.st)
+        server = MockSSDPServer(location_ip=args.location_ip, location_port=args.location_port, location_file=args.location_file, server_name=args.server_name, st=args.st)
         server.start()
     except Exception as e:
         logger.error('Error: {}'.format(str(e)))
